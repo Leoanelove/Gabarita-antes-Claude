@@ -35,6 +35,7 @@ export interface CriarCronogramaModalProps {
   disciplinas: Disciplina[];
   assuntos?: Assunto[];
   concursos?: Concurso[];
+  activeConcursoId?: string;
   onPlanCreated: (newPlan: StudyPlan) => Promise<void>;
 }
 
@@ -53,20 +54,50 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
   disciplinas,
   assuntos = [],
   concursos = [],
+  activeConcursoId,
   onPlanCreated,
 }) => {
+  // Concurso ativo resolvido
+  const resolvedActiveConcursoId = useMemo(() => {
+    if (activeConcursoId) return activeConcursoId;
+    if (concursos && concursos.length > 0) {
+      const active = concursos.find(c => c.active);
+      if (active) return active.id;
+      return concursos[0].id;
+    }
+    if (plan?.concursoId) return plan.concursoId;
+    return disciplinas[0]?.concursoId || '';
+  }, [activeConcursoId, concursos, plan, disciplinas]);
+
+  // Filtro estrito de disciplinas pelo concurso ativo
+  const materiasDoConcursoAtivo = useMemo(() => {
+    if (!resolvedActiveConcursoId) {
+      const firstConcursoId = disciplinas.find(d => d.concursoId)?.concursoId;
+      if (firstConcursoId) {
+        return disciplinas.filter(d => d.concursoId === firstConcursoId);
+      }
+      return disciplinas;
+    }
+    return disciplinas.filter(d => d.concursoId === resolvedActiveConcursoId);
+  }, [disciplinas, resolvedActiveConcursoId]);
+
   // Stepper com os 3 passos solicitados: Seleção de Disciplinas, Relevância e Horários
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Passo 1: Seleção de Disciplinas Reais
   const [selectedDisciplinaIds, setSelectedDisciplinaIds] = useState<string[]>(() => {
-    return disciplinas.map(d => d.id);
+    if (plan?.disciplinasDistribution && plan.disciplinasDistribution.length > 0 && plan.concursoId === resolvedActiveConcursoId) {
+      const existingIds = plan.disciplinasDistribution.map(d => d.disciplinaId);
+      const valid = existingIds.filter(id => materiasDoConcursoAtivo.some(m => m.id === id));
+      if (valid.length > 0) return valid;
+    }
+    return materiasDoConcursoAtivo.map(d => d.id);
   });
 
   // Passo 2: Relevância com Sliders Reais de Importância (1 a 5) e Conhecimento (1 a 5)
   const [relevancias, setRelevancias] = useState<Record<string, { importancia: number; conhecimento: number }>>(() => {
     const initial: Record<string, { importancia: number; conhecimento: number }> = {};
-    disciplinas.forEach((d) => {
+    materiasDoConcursoAtivo.forEach((d) => {
       initial[d.id] = {
         importancia: Math.min(5, Math.max(1, Math.round(d.weight || 3))),
         conhecimento: 3,
@@ -116,18 +147,19 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
       setStep(1);
       setErrorMessage(null);
       setIsSaving(false);
-      if (plan?.disciplinasDistribution && plan.disciplinasDistribution.length > 0) {
+      if (plan?.disciplinasDistribution && plan.disciplinasDistribution.length > 0 && plan.concursoId === resolvedActiveConcursoId) {
         const existingIds = plan.disciplinasDistribution.map(d => d.disciplinaId);
-        if (existingIds.length > 0) {
-          setSelectedDisciplinaIds(existingIds);
+        const valid = existingIds.filter(id => materiasDoConcursoAtivo.some(m => m.id === id));
+        if (valid.length > 0) {
+          setSelectedDisciplinaIds(valid);
         } else {
-          setSelectedDisciplinaIds(disciplinas.map(d => d.id));
+          setSelectedDisciplinaIds(materiasDoConcursoAtivo.map(d => d.id));
         }
       } else {
-        setSelectedDisciplinaIds(disciplinas.map(d => d.id));
+        setSelectedDisciplinaIds(materiasDoConcursoAtivo.map(d => d.id));
       }
     }
-  }, [isOpen, plan, disciplinas]);
+  }, [isOpen, plan, resolvedActiveConcursoId, materiasDoConcursoAtivo]);
 
   // Manipulação de Seleção de Disciplinas (Passo 1)
   const toggleDisciplina = (discId: string) => {
@@ -140,7 +172,7 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
   };
 
   const selectAllDisciplinas = () => {
-    setSelectedDisciplinaIds(disciplinas.map(d => d.id));
+    setSelectedDisciplinaIds(materiasDoConcursoAtivo.map(d => d.id));
   };
 
   const clearSelection = () => {
@@ -165,7 +197,7 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
   // Lógica Matemática do Passo 2:
   // Calcula o percentual fechando em exatos 100.0%
   const calculatedDistribution = useMemo(() => {
-    const selected = disciplinas.filter(d => selectedDisciplinaIds.includes(d.id));
+    const selected = materiasDoConcursoAtivo.filter(d => selectedDisciplinaIds.includes(d.id));
     if (selected.length === 0) return [];
 
     const items = selected.map(d => {
@@ -326,14 +358,14 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
         DatabaseService.getQuestoes(),
       ]);
 
-      const selectedDisciplinasList = disciplinas.filter(d => selectedDisciplinaIds.includes(d.id));
+      const selectedDisciplinasList = materiasDoConcursoAtivo.filter(d => selectedDisciplinaIds.includes(d.id));
       const todayStr = PlannerService.formatLocalDate(new Date());
 
       // 4. Gera as novas sessões do calendário preservando sessões concluídas existentes
       const preservedCompleted = plan?.sessions ? plan.sessions.filter(s => s.status === 'concluida') : [];
       const generated = PlannerService.generateSessions(
         plan?.id || `plan_${Date.now()}`,
-        plan?.concursoId || 'concurso_default',
+        resolvedActiveConcursoId || plan?.concursoId || 'concurso_default',
         todayStr,
         plan?.targetExamDate || '2026-12-31',
         newAvailability,
@@ -344,9 +376,16 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
         preservedCompleted
       );
 
+      const activeMatch = concursos.find(c => c.id === resolvedActiveConcursoId);
+      const resolvedTitle = activeMatch 
+        ? `${activeMatch.organ || activeMatch.orgao || activeMatch.title} - ${activeMatch.role}`
+        : plan?.concursoTitle || 'Plano Personalizado';
+
       // 5. Monta o objeto StudyPlan final completo
       const updatedPlan: StudyPlan = {
         ...plan,
+        concursoId: resolvedActiveConcursoId || plan.concursoId,
+        concursoTitle: resolvedTitle,
         weeklyAvailability: newAvailability,
         disciplinasDistribution: newDistribution,
         sessions: generated.sessions,
@@ -497,49 +536,65 @@ export const CriarCronogramaModal: React.FC<CriarCronogramaModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-1 pr-2">
-              {disciplinas.map((disc) => {
-                const isSelected = selectedDisciplinaIds.includes(disc.id);
-                const topicsCount = assuntos.filter(a => a.disciplinaId === disc.id).length;
-                return (
-                  <button
-                    key={disc.id}
-                    type="button"
-                    onClick={() => toggleDisciplina(disc.id)}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-start justify-between cursor-pointer ${
-                      isSelected
-                        ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2.5 min-w-0 pr-2">
-                      <span 
-                        className="w-3.5 h-3.5 rounded-full mt-0.5 shrink-0" 
-                        style={{ backgroundColor: disc.color || '#10b981' }} 
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate">
-                          {disc.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">
-                          {topicsCount} tópicos cadastrados
-                        </span>
+            {materiasDoConcursoAtivo.length === 0 ? (
+              <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-3 bg-slate-50/50 dark:bg-slate-900/40">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div className="max-w-sm mx-auto space-y-1">
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    Nenhuma matéria encontrada para o concurso ativo.
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Cadastre ou ative um concurso primeiro no menu "Concursos & Provas" para gerar o seu cronograma.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto p-1 pr-2">
+                {materiasDoConcursoAtivo.map((disc) => {
+                  const isSelected = selectedDisciplinaIds.includes(disc.id);
+                  const topicsCount = assuntos.filter(a => a.disciplinaId === disc.id).length;
+                  return (
+                    <button
+                      key={disc.id}
+                      type="button"
+                      onClick={() => toggleDisciplina(disc.id)}
+                      className={`p-3 rounded-xl border text-left transition-all flex items-start justify-between cursor-pointer ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-xs'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0 pr-2">
+                        <span 
+                          className="w-3.5 h-3.5 rounded-full mt-0.5 shrink-0" 
+                          style={{ backgroundColor: disc.color || '#10b981' }} 
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate">
+                            {disc.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            {topicsCount} tópicos cadastrados
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected ? 'bg-emerald-500 text-white' : 'border border-slate-300 dark:border-slate-700'
-                    }`}>
-                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected ? 'bg-emerald-500 text-white' : 'border border-slate-300 dark:border-slate-700'
+                      }`}>
+                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
               <span className="text-slate-500">Disciplinas ativas:</span>
               <Badge variant="emerald" size="sm">
-                {selectedDisciplinaIds.length} selecionada(s)
+                {selectedDisciplinaIds.length} de {materiasDoConcursoAtivo.length} selecionada(s)
               </Badge>
             </div>
           </div>

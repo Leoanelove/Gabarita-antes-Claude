@@ -241,23 +241,50 @@ export class DatabaseService {
 
   // --- CONCURSOS ---
   static async getConcursos(): Promise<Concurso[]> {
+    let rawList: Concurso[] = [];
     if (isFirebaseInitialized && db) {
       try {
         const querySnapshot = await getDocs(collection(db, 'concursos'));
         if (!querySnapshot.empty) {
-          return querySnapshot.docs.map(d => d.data() as Concurso);
+          rawList = querySnapshot.docs.map(d => d.data() as Concurso);
         }
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, 'concursos');
       }
     }
-    return loadStored<Concurso[]>(STORAGE_KEYS.CONCURSOS, INITIAL_CONCURSOS);
+    if (rawList.length === 0) {
+      rawList = loadStored<Concurso[]>(STORAGE_KEYS.CONCURSOS, INITIAL_CONCURSOS);
+    }
+    return rawList.map(c => {
+      const organ = (c.organ || c.orgao || c.nome || '').trim();
+      const title = (c.title && c.title.length === 1 && organ.length > 1)
+        ? (c.role ? `${organ} - ${c.role}` : organ)
+        : (c.title || c.titulo || organ);
+      return {
+        ...c,
+        organ: organ || c.organ,
+        orgao: organ || c.orgao,
+        nome: organ || c.nome,
+        title: title || c.title,
+        titulo: title || c.titulo,
+      };
+    });
   }
 
   static async addConcurso(concurso: Omit<Concurso, 'id' | 'createdAt' | 'updatedAt'>): Promise<Concurso> {
     const list = await this.getConcursos();
+    const organ = (concurso.organ || concurso.orgao || concurso.nome || '').trim();
+    const title = (concurso.title && concurso.title.length === 1 && organ.length > 1)
+      ? (concurso.role ? `${organ} - ${concurso.role}` : organ)
+      : (concurso.title || concurso.titulo || organ);
+
     const newConcurso: Concurso = {
       ...concurso,
+      organ: organ || concurso.organ,
+      orgao: organ || concurso.orgao,
+      nome: organ || concurso.nome,
+      title: title || concurso.title,
+      titulo: title || concurso.titulo,
       id: `conc_${Date.now()}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -687,8 +714,25 @@ export class DatabaseService {
 
   static async deleteAssunto(id: string): Promise<Assunto[]> {
     const list = await this.getAssuntos();
+    const target = list.find(a => a.id === id);
     const updated = list.filter(a => a.id !== id);
     saveStored(STORAGE_KEYS.ASSUNTOS, updated);
+    if (target) {
+      const discList = await this.getDisciplinas();
+      const discAssuntos = updated.filter(a => a.disciplinaId === target.disciplinaId);
+      const dominados = discAssuntos.filter(a => a.completed || a.status === 'dominado' || a.status === 'revisado').length;
+      const updatedDisc = discList.map(d => {
+        if (d.id === target.disciplinaId) {
+          return {
+            ...d,
+            topicsCount: discAssuntos.length,
+            completedTopicsCount: dominados,
+          };
+        }
+        return d;
+      });
+      saveStored(STORAGE_KEYS.DISCIPLINAS, updatedDisc);
+    }
     await this.syncActiveContestStorage();
     return updated;
   }
@@ -2558,8 +2602,23 @@ export class DatabaseService {
 
   // --- STUDY CYCLE ---
   static async getStudyCycle(concursoId?: string): Promise<StudyCycle> {
+    if (concursoId) {
+      const savedForConcurso = loadStored<StudyCycle | null>(`gabarita_study_cycle_${concursoId}`, null);
+      if (savedForConcurso && savedForConcurso.concursoId === concursoId) {
+        saveStored(STORAGE_KEYS.STUDY_CYCLE, savedForConcurso);
+        return savedForConcurso;
+      }
+    }
     const current = loadStored<StudyCycle>(STORAGE_KEYS.STUDY_CYCLE, INITIAL_STUDY_CYCLE);
+    if (concursoId && current.concursoId === concursoId) {
+      return current;
+    }
     if (concursoId && current.concursoId !== concursoId) {
+      const savedForConcurso = loadStored<StudyCycle | null>(`gabarita_study_cycle_${concursoId}`, null);
+      if (savedForConcurso && savedForConcurso.concursoId === concursoId) {
+        saveStored(STORAGE_KEYS.STUDY_CYCLE, savedForConcurso);
+        return savedForConcurso;
+      }
       return this.recalculateStudyCycle(concursoId);
     }
     return current;
@@ -2567,6 +2626,9 @@ export class DatabaseService {
 
   static async saveStudyCycle(cycle: StudyCycle): Promise<StudyCycle> {
     saveStored(STORAGE_KEYS.STUDY_CYCLE, cycle);
+    if (cycle.concursoId) {
+      saveStored(`gabarita_study_cycle_${cycle.concursoId}`, cycle);
+    }
     if (isFirebaseInitialized && db) {
       try {
         await setDoc(doc(db, 'study_cycles', cycle.id), cycle, { merge: true });
@@ -2635,7 +2697,9 @@ export class DatabaseService {
     ]);
     const concursoMatch = concursos.find(c => c.id === targetConcursoId) || concursos[0];
     const concursoTitle = concursoMatch ? `${concursoMatch.organ} - ${concursoMatch.role}` : currentCycle.concursoTitle;
-    const disciplinas = allDisciplinas.filter(d => !targetConcursoId || !d.concursoId || d.concursoId === targetConcursoId);
+    const disciplinas = targetConcursoId 
+      ? allDisciplinas.filter(d => d.concursoId === targetConcursoId) 
+      : allDisciplinas;
     const newCycle = CycleService.generateCycle(
       currentCycle.userId,
       targetConcursoId,

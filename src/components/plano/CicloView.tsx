@@ -13,11 +13,10 @@ import {
   Trash2,
   AlertTriangle,
   Info,
-  Plus,
   PieChart,
   Edit3
 } from 'lucide-react';
-import { StudyCycle, CycleBlock, Disciplina, Assunto, StudyMethod } from '../../types';
+import { StudyCycle, CycleBlock, Disciplina, Assunto, StudyMethod, Concurso } from '../../types';
 import { Card, CardHeader, CardBody } from '../../design-system/Card';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
@@ -30,6 +29,8 @@ interface CicloViewProps {
   cycle: StudyCycle;
   disciplinas: Disciplina[];
   assuntos?: Assunto[];
+  activeConcursoId?: string;
+  concursos?: Concurso[];
   onAdvanceCycle: (minutesStudied?: number) => Promise<void>;
   onRewindCycle: () => Promise<void>;
   onRecordCycleProgress: (additionalMinutes: number) => Promise<void>;
@@ -47,6 +48,8 @@ export const CicloView: React.FC<CicloViewProps> = ({
   cycle,
   disciplinas,
   assuntos = [],
+  activeConcursoId,
+  concursos = [],
   onAdvanceCycle,
   onRewindCycle,
   onRecordCycleProgress,
@@ -521,19 +524,6 @@ export const CicloView: React.FC<CicloViewProps> = ({
         <CardHeader
           title="Sequência de Execução do Ciclo (Timeline)"
           subtitle="Acompanhe a ordem contínua dos blocos de estudo e retome de onde parou."
-          action={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCreateCycleModalOpen(true)}
-                leftIcon={<Plus className="w-3.5 h-3.5 text-[var(--primary-color)] dark:text-[var(--primary-text-dark)]" />}
-                className="cursor-pointer"
-              >
-                Novo Ciclo
-              </Button>
-            </div>
-          }
         />
         <CardBody className="p-6 space-y-4">
           {activeCycle.blocks.length === 0 ? (
@@ -548,7 +538,7 @@ export const CicloView: React.FC<CicloViewProps> = ({
                 onClick={() => setIsCreateCycleModalOpen(true)}
                 className="font-bold cursor-pointer"
               >
-                Gerar Ciclo Automático
+                Criar Novo Ciclo
               </Button>
             </div>
           ) : (
@@ -764,6 +754,8 @@ export const CicloView: React.FC<CicloViewProps> = ({
         disciplinas={disciplinas}
         currentCycle={activeCycle}
         assuntos={internalAssuntos}
+        activeConcursoId={activeConcursoId || activeCycle?.concursoId}
+        concursos={concursos}
         onCycleCreated={handleCycleCreated}
       />
     </div>

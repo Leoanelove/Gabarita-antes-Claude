@@ -231,6 +231,16 @@ const MainApp: React.FC = () => {
       targetConcursoId: activeConcurso.id,
       targetConcursoTitle: `${activeConcurso.organ} - ${activeConcurso.role}`,
     });
+    try {
+      const [newCycle, newPlan] = await Promise.all([
+        DatabaseService.getStudyCycle(activeConcurso.id),
+        DatabaseService.getStudyPlan(activeConcurso.id),
+      ]);
+      setCycle(newCycle);
+      setPlan(newPlan);
+    } catch (e) {
+      console.warn('Erro ao atualizar ciclo e plano do concurso ativo:', e);
+    }
   };
 
   const handleAddProva = async (newProva: Omit<Prova, 'id' | 'createdAt'>) => {
@@ -287,6 +297,8 @@ const MainApp: React.FC = () => {
   const handleDeleteAssunto = async (id: string) => {
     const updatedList = await DatabaseService.deleteAssunto(id);
     setAssuntos(updatedList);
+    const updatedDisciplinas = await DatabaseService.getDisciplinas();
+    setDisciplinas(updatedDisciplinas);
   };
 
   const handleDuplicateAssunto = async (id: string) => {
@@ -743,6 +755,8 @@ const MainApp: React.FC = () => {
               concursos={concursos}
               provas={provas}
               user={user}
+              disciplinas={disciplinas}
+              assuntos={assuntos}
               onAddConcurso={handleAddConcurso}
               onAddConcursoWithDisciplinas={handleAddConcursoWithDisciplinas}
               onUpdateConcurso={handleUpdateConcurso}
@@ -751,6 +765,15 @@ const MainApp: React.FC = () => {
               onAddProva={handleAddProva}
               onUpdateProva={handleUpdateProva}
               onDeleteProva={handleDeleteProva}
+              onAddDisciplina={handleAddDisciplina}
+              onUpdateDisciplina={handleUpdateDisciplina}
+              onDeleteDisciplina={handleDeleteDisciplina}
+              onAddAssunto={handleAddAssunto}
+              onUpdateAssunto={handleUpdateAssunto}
+              onDeleteAssunto={handleDeleteAssunto}
+              onUpdateAssuntoStatus={handleUpdateAssuntoStatus}
+              onOpenStudyTimer={handleOpenStudyTimer}
+              onNavigateTab={setCurrentTab}
             />
           )}
 
@@ -761,6 +784,7 @@ const MainApp: React.FC = () => {
               concursos={concursos}
               disciplinas={disciplinas}
               assuntos={assuntos}
+              activeConcursoId={activeConcursoId}
               studyMethod={currentTab === 'ciclo' ? 'ciclo' : currentTab === 'cronograma' ? 'cronograma' : studyMethod}
               onNavigateTab={setCurrentTab}
               onSwitchMethod={handleSwitchStudyMethod}

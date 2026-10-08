@@ -77,6 +77,9 @@ export interface Concurso {
   id: string;
   title: string;
   organ: string;
+  orgao?: string;
+  nome?: string;
+  titulo?: string;
   banca: string;
   role: string;
   sphere: ConcursoSphere;

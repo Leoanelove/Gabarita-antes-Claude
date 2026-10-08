@@ -15,7 +15,7 @@ import {
   HelpCircle,
   BarChart2
 } from 'lucide-react';
-import { Disciplina, Assunto, StudyCycle, CycleBlock, DayOfWeek } from '../../types';
+import { Disciplina, Assunto, StudyCycle, CycleBlock, DayOfWeek, Concurso } from '../../types';
 import { Modal } from '../../design-system/Modal';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
@@ -26,6 +26,8 @@ interface NovoCicloWizardModalProps {
   disciplinas: Disciplina[];
   currentCycle: StudyCycle;
   assuntos?: Assunto[];
+  activeConcursoId?: string;
+  concursos?: Concurso[];
   onCycleCreated: (newCycle: StudyCycle) => Promise<void>;
 }
 
@@ -35,8 +37,26 @@ export const NovoCicloWizardModal: React.FC<NovoCicloWizardModalProps> = ({
   disciplinas,
   currentCycle,
   assuntos = [],
+  activeConcursoId,
+  concursos = [],
   onCycleCreated,
 }) => {
+  const resolvedActiveConcursoId = useMemo(() => {
+    if (activeConcursoId) return activeConcursoId;
+    if (concursos && concursos.length > 0) {
+      const active = concursos.find(c => c.active);
+      if (active) return active.id;
+      return concursos[0].id;
+    }
+    if (currentCycle?.concursoId) return currentCycle.concursoId;
+    return disciplinas[0]?.concursoId || '';
+  }, [activeConcursoId, concursos, currentCycle, disciplinas]);
+
+  const materiasDoConcursoAtivo = useMemo(() => {
+    if (!resolvedActiveConcursoId) return disciplinas;
+    return disciplinas.filter(d => d.concursoId === resolvedActiveConcursoId);
+  }, [disciplinas, resolvedActiveConcursoId]);
+
   // Controle do Stepper (Passos de 1 a 4)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
@@ -45,18 +65,18 @@ export const NovoCicloWizardModal: React.FC<NovoCicloWizardModalProps> = ({
 
   // Passo 2: Disciplinas Selecionadas
   const [selectedDisciplinaIds, setSelectedDisciplinaIds] = useState<string[]>(() => {
-    // Pré-seleciona as disciplinas já presentes no ciclo ou todas
-    if (currentCycle?.blocks?.length > 0) {
+    if (currentCycle?.blocks?.length > 0 && currentCycle.concursoId === resolvedActiveConcursoId) {
       const existingIds = Array.from(new Set(currentCycle.blocks.map(b => b.disciplinaId)));
-      return existingIds.length > 0 ? existingIds : disciplinas.map(d => d.id);
+      const valid = existingIds.filter(id => materiasDoConcursoAtivo.some(m => m.id === id));
+      if (valid.length > 0) return valid;
     }
-    return disciplinas.map(d => d.id);
+    return materiasDoConcursoAtivo.map(d => d.id);
   });
 
   // Passo 3: Controles Deslizantes Reais de Importância (1 a 5) e Conhecimento (1 a 5)
   const [relevancias, setRelevancias] = useState<Record<string, { importancia: number; conhecimento: number }>>(() => {
     const initial: Record<string, { importancia: number; conhecimento: number }> = {};
-    disciplinas.forEach((d) => {
+    materiasDoConcursoAtivo.forEach((d) => {
       initial[d.id] = {
         importancia: Math.min(5, Math.max(1, Math.round(d.weight || 3))),
         conhecimento: 3, // Padrão intermediário

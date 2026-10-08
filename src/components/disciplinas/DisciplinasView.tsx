@@ -69,8 +69,8 @@ interface DisciplinasViewProps {
 
 export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   concursos,
-  disciplinas,
-  assuntos,
+  disciplinas: propDisciplinas,
+  assuntos: propAssuntos,
   activeConcursoId,
   onSetActiveConcurso,
   onAddDisciplina,
@@ -90,6 +90,18 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   onOpenStudyTimer,
   onNavigateTab,
 }) => {
+  // Estado local gerenciado para permitir atualizações instantâneas e otimistas
+  const [disciplinas, setDisciplinas] = useState<Disciplina[]>(propDisciplinas);
+  const [assuntos, setAssuntos] = useState<Assunto[]>(propAssuntos);
+
+  useEffect(() => {
+    setDisciplinas(propDisciplinas);
+  }, [propDisciplinas]);
+
+  useEffect(() => {
+    setAssuntos(propAssuntos);
+  }, [propAssuntos]);
+
   if (concursos.length === 0) {
     return (
       <EmptyContestState
@@ -373,6 +385,153 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
     }
   };
 
+  // 1. EXCLUSÃO DE TÓPICO INDIVIDUAL COM PERSISTÊNCIA REAL NO LOCALSTORAGE
+  const handleDeleteTopico = async (disciplinaId: string, topicoIdOuNome: string) => {
+    // Encontra o tópico por ID ou Nome
+    const targetAssunto = assuntos.find(a => 
+      (a.id === topicoIdOuNome || a.name === topicoIdOuNome) && 
+      (!disciplinaId || a.disciplinaId === disciplinaId)
+    ) || assuntos.find(a => a.id === topicoIdOuNome || a.name === topicoIdOuNome);
+
+    const targetId = targetAssunto ? targetAssunto.id : topicoIdOuNome;
+    const targetName = targetAssunto ? targetAssunto.name : 'Tópico';
+    const discId = targetAssunto?.disciplinaId || disciplinaId;
+
+    // 1. Atualiza estado local imediatamente (reatividade instantânea)
+    const updatedAssuntos = assuntos.filter(a => a.id !== targetId);
+    setAssuntos(updatedAssuntos);
+
+    setDisciplinas(prev => prev.map(d => {
+      if (d.id === discId) {
+        const remainingTopics = updatedAssuntos.filter(a => a.disciplinaId === d.id);
+        const dominados = remainingTopics.filter(a => a.completed || a.status === 'dominado' || a.status === 'revisado').length;
+        return {
+          ...d,
+          topicsCount: remainingTopics.length,
+          completedTopicsCount: dominados,
+        };
+      }
+      return d;
+    }));
+
+    // 2. Persistência imediata no localStorage
+    try {
+      // gabarita_assuntos
+      const rawAssuntos = localStorage.getItem('gabarita_assuntos');
+      if (rawAssuntos) {
+        const stored: Assunto[] = JSON.parse(rawAssuntos);
+        const filtered = stored.filter(a => a.id !== targetId);
+        localStorage.setItem('gabarita_assuntos', JSON.stringify(filtered));
+      }
+
+      // gabarita_disciplinas (atualiza contagem de tópicos)
+      const rawDisc = localStorage.getItem('gabarita_disciplinas');
+      if (rawDisc) {
+        const storedDisc: Disciplina[] = JSON.parse(rawDisc);
+        const updatedDisc = storedDisc.map(d => {
+          if (d.id === discId) {
+            const discTopics = updatedAssuntos.filter(a => a.disciplinaId === d.id);
+            const dom = discTopics.filter(a => a.completed || a.status === 'dominado' || a.status === 'revisado').length;
+            return {
+              ...d,
+              topicsCount: discTopics.length,
+              completedTopicsCount: dom,
+            };
+          }
+          return d;
+        });
+        localStorage.setItem('gabarita_disciplinas', JSON.stringify(updatedDisc));
+      }
+
+      // gabarita_active_contest
+      const rawActive = localStorage.getItem('gabarita_active_contest');
+      if (rawActive) {
+        const bundle = JSON.parse(rawActive);
+        if (bundle?.disciplinas) {
+          bundle.disciplinas = bundle.disciplinas.map((d: any) => {
+            if (d.id === discId && d.assuntos) {
+              const filteredAssuntos = d.assuntos.filter((a: any) => a.id !== targetId && a.name !== topicoIdOuNome);
+              return {
+                ...d,
+                assuntos: filteredAssuntos,
+                topicsCount: filteredAssuntos.length,
+                completedTopicsCount: filteredAssuntos.filter((a: any) => a.completed || a.status === 'dominado' || a.status === 'revisado').length,
+              };
+            }
+            return d;
+          });
+          bundle.updatedAt = new Date().toISOString();
+          localStorage.setItem('gabarita_active_contest', JSON.stringify(bundle));
+        }
+      }
+    } catch (storageErr) {
+      console.warn('Erro ao atualizar localStorage na exclusão do tópico:', storageErr);
+    }
+
+    // 3. Callback assíncrono para persistência no banco / parent
+    try {
+      if (onDeleteAssunto) {
+        await onDeleteAssunto(targetId);
+      }
+    } catch (err) {
+      console.error('Erro ao deletar assunto:', err);
+    }
+
+    showFeedback('success', `Tópico "${targetName}" excluído com sucesso.`);
+  };
+
+  // 2. EXCLUSÃO DE DISCIPLINA COMPLETA COM PERSISTÊNCIA REAL NO LOCALSTORAGE
+  const handleDeleteDisciplina = async (disciplinaId: string) => {
+    const discToDelete = disciplinas.find(d => d.id === disciplinaId);
+    const discName = discToDelete ? discToDelete.name : 'Disciplina';
+
+    // 1. Atualiza estado local imediatamente
+    const updatedDisciplinas = disciplinas.filter(d => d.id !== disciplinaId);
+    const updatedAssuntos = assuntos.filter(a => a.disciplinaId !== disciplinaId);
+    setDisciplinas(updatedDisciplinas);
+    setAssuntos(updatedAssuntos);
+
+    // 2. Persistência imediata no localStorage
+    try {
+      const rawDisc = localStorage.getItem('gabarita_disciplinas');
+      if (rawDisc) {
+        const stored: Disciplina[] = JSON.parse(rawDisc);
+        const filtered = stored.filter(d => d.id !== disciplinaId);
+        localStorage.setItem('gabarita_disciplinas', JSON.stringify(filtered));
+      }
+
+      const rawAssuntos = localStorage.getItem('gabarita_assuntos');
+      if (rawAssuntos) {
+        const stored: Assunto[] = JSON.parse(rawAssuntos);
+        const filtered = stored.filter(a => a.disciplinaId !== disciplinaId);
+        localStorage.setItem('gabarita_assuntos', JSON.stringify(filtered));
+      }
+
+      const rawActive = localStorage.getItem('gabarita_active_contest');
+      if (rawActive) {
+        const bundle = JSON.parse(rawActive);
+        if (bundle?.disciplinas) {
+          bundle.disciplinas = bundle.disciplinas.filter((d: any) => d.id !== disciplinaId);
+          bundle.updatedAt = new Date().toISOString();
+          localStorage.setItem('gabarita_active_contest', JSON.stringify(bundle));
+        }
+      }
+    } catch (storageErr) {
+      console.warn('Erro ao atualizar localStorage na exclusão da matéria:', storageErr);
+    }
+
+    // 3. Callback assíncrono para persistência no banco / parent
+    try {
+      if (onDeleteDisciplina) {
+        await onDeleteDisciplina(disciplinaId);
+      }
+    } catch (err) {
+      console.error('Erro ao deletar disciplina:', err);
+    }
+
+    showFeedback('success', `Disciplina "${discName}" e todos os seus tópicos foram removidos.`);
+  };
+
   // Save Disciplina
   const handleSaveDisciplina = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -406,6 +565,11 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   };
 
   // Save Assunto
+  const handleCloseAssuntoModal = () => {
+    setIsAddAssuntoOpen(false);
+    setEditingAssunto(null);
+  };
+
   const handleSaveAssunto = async (e: React.FormEvent) => {
     e.preventDefault();
     const discId = targetDisciplinaIdForAssunto || currentConcursoDisciplinas[0]?.id;
@@ -413,7 +577,8 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
     setIsSubmitting(true);
     try {
       if (editingAssunto) {
-        await onUpdateAssunto(editingAssunto.id, {
+        const assuntoId = editingAssunto.id;
+        const updatedFields = {
           disciplinaId: discId,
           name: topicName.trim(),
           importance: topicImportance,
@@ -422,9 +587,44 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
           notes: topicNotes,
           link: topicLink.trim() || undefined,
           completed: topicStatus === 'dominado' || topicStatus === 'revisado',
-        });
+        };
+
+        await onUpdateAssunto(assuntoId, updatedFields);
+
+        // Atualização do estado local React de forma imutável
+        setAssuntos(prev => prev.map(a => a.id === assuntoId ? { ...a, ...updatedFields } : a));
+
+        // Persistência imediata no localStorage
+        try {
+          const rawAssuntos = localStorage.getItem('gabarita_assuntos');
+          if (rawAssuntos) {
+            const stored: Assunto[] = JSON.parse(rawAssuntos);
+            const updated = stored.map(a => a.id === assuntoId ? { ...a, ...updatedFields } : a);
+            localStorage.setItem('gabarita_assuntos', JSON.stringify(updated));
+          }
+
+          const rawActive = localStorage.getItem('gabarita_active_contest');
+          if (rawActive) {
+            const bundle = JSON.parse(rawActive);
+            if (bundle?.disciplinas) {
+              bundle.disciplinas = bundle.disciplinas.map((d: any) => {
+                if (d.assuntos) {
+                  d.assuntos = d.assuntos.map((a: any) => a.id === assuntoId ? { ...a, ...updatedFields } : a);
+                }
+                return d;
+              });
+              bundle.updatedAt = new Date().toISOString();
+              localStorage.setItem('gabarita_active_contest', JSON.stringify(bundle));
+            }
+          }
+        } catch (storageErr) {
+          console.warn('Erro ao atualizar localStorage na edição do tópico:', storageErr);
+        }
+
+        // FECHO COMPLETO E LIMPEZA DOS MODAIS
+        setIsAddAssuntoOpen(false);
         setEditingAssunto(null);
-        showFeedback('success', 'Tópico atualizado!');
+        showFeedback('success', 'Tópico atualizado com sucesso!');
       } else {
         const discTopics = currentConcursoAssuntos.filter(a => a.disciplinaId === discId);
         await onAddAssunto({
@@ -440,6 +640,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
           subtopicos: [],
         });
         setIsAddAssuntoOpen(false);
+        setEditingAssunto(null);
         // Expand the target disciplina
         setExpandedDisciplinas(prev => ({ ...prev, [discId]: true }));
         showFeedback('success', 'Novo tópico cadastrado!');
@@ -923,10 +1124,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Tem certeza que deseja remover a disciplina "${disc.name}" e seus tópicos?`)) {
-                          onDeleteDisciplina(disc.id);
-                          showFeedback('success', `Disciplina "${disc.name}" removida.`);
-                        }
+                        handleDeleteDisciplina(disc.id);
                       }}
                       className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                       title="Excluir Disciplina"
@@ -1132,6 +1330,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      setIsAddAssuntoOpen(false);
                                       setEditingAssunto(assunto);
                                       setTargetDisciplinaIdForAssunto(assunto.disciplinaId);
                                       setTopicName(assunto.name);
@@ -1140,7 +1339,6 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                       setTopicStatus(assunto.status || 'nao_iniciado');
                                       setTopicNotes(assunto.notes || '');
                                       setTopicLink(assunto.link || '');
-                                      setIsAddAssuntoOpen(true);
                                     }}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                     title="Editar Tópico"
@@ -1149,11 +1347,9 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      if (confirm(`Remover o tópico "${assunto.name}"?`)) {
-                                        onDeleteAssunto(assunto.id);
-                                        showFeedback('success', `Tópico "${assunto.name}" removido.`);
-                                      }
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTopico(disc.id, assunto.id);
                                     }}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                     title="Excluir Tópico"
@@ -1246,10 +1442,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
       {/* Modal: Cadastrar / Editar Tópico */}
       <Modal
         isOpen={isAddAssuntoOpen || editingAssunto !== null}
-        onClose={() => { 
-          setIsAddAssuntoOpen(false); 
-          setEditingAssunto(null); 
-        }}
+        onClose={handleCloseAssuntoModal}
         title={editingAssunto ? "Editar Tópico" : "Cadastrar Novo Tópico"}
         maxWidth="md"
       >
@@ -1363,10 +1556,8 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
           <div className="flex justify-end gap-2 pt-2">
             <Button 
               variant="outline" 
-              onClick={() => { 
-                setIsAddAssuntoOpen(false); 
-                setEditingAssunto(null); 
-              }}
+              type="button"
+              onClick={handleCloseAssuntoModal}
             >
               Cancelar
             </Button>

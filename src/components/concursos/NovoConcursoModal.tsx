@@ -17,7 +17,12 @@ import {
   BookOpen,
   Layers,
   HelpCircle,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Pencil,
+  Check
 } from 'lucide-react';
 import { 
   Concurso, 
@@ -30,7 +35,7 @@ import {
 import { Modal } from '../../design-system/Modal';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
-import { sanitizeSyllabusData, parseSyllabusLocally, ParsedSyllabusItem, generateSigla, sanitizeTopicString } from '../../services/editalParser';
+import { sanitizeSyllabusData, parseSyllabusLocally, ParsedSyllabusItem, generateSigla, sanitizeTopicString, preSanitizeEditalText } from '../../services/editalParser';
 
 export interface ExtractedDiscipline {
   name: string;
@@ -85,6 +90,13 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
 
   // Disciplinas manipuláveis
   const [disciplinas, setDisciplinas] = useState<ExtractedDiscipline[]>([]);
+  const [expandedDisciplines, setExpandedDisciplines] = useState<Record<number, boolean>>({});
+
+  // Edição inline na Revisão (Etapa 3)
+  const [editingDisciplineIndex, setEditingDisciplineIndex] = useState<number | null>(null);
+  const [editingDisciplineName, setEditingDisciplineName] = useState<string>('');
+  const [editingTopicKey, setEditingTopicKey] = useState<string | null>(null);
+  const [editingTopicName, setEditingTopicName] = useState<string>('');
 
   // Input rápido manual
   const [manualDiscName, setManualDiscName] = useState('');
@@ -95,16 +107,12 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Auto-gerar título se vazio ao preencher Órgão ou Cargo
+  // Auto-gerar título e sincronizar com Órgão e Cargo
   const handleOrganOrRoleChange = (newOrgan: string, newRole: string) => {
     setOrgan(newOrgan);
     setRole(newRole);
-    if (!title || title.includes(' - ') || title === '') {
-      const parts = [newOrgan.trim(), newRole.trim()].filter(Boolean);
-      if (parts.length > 0) {
-        setTitle(parts.join(' - '));
-      }
-    }
+    const parts = [newOrgan.trim(), newRole.trim()].filter(Boolean);
+    setTitle(parts.join(' - '));
   };
 
   const handleLoadSampleText = () => {
@@ -163,6 +171,13 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
       setErrorMessage('Cole o texto do edital ou carregue um arquivo para extração com IA.');
       return;
     }
+    // Sanitização de texto antes do envio à IA (remoção de carimbos de processos, assinaturas e paginações)
+    const cleanedText = preSanitizeEditalText(pastedText);
+    if (!cleanedText.trim()) {
+      setErrorMessage('O texto colado continha apenas dados administrativos/ruídos. Insira o conteúdo das disciplinas.');
+      return;
+    }
+
     setIsParsingAi(true);
     setErrorMessage(null);
     try {
@@ -171,7 +186,7 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            rawText: pastedText,
+            rawText: cleanedText,
             cargo: role || 'Cargo Selecionado',
             concursoTitle: title || organ || 'Concurso Público',
           }),
@@ -205,7 +220,7 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
       }
 
       // Fallback local estruturado
-      const parsedLocal = parseTextLocally(pastedText);
+      const parsedLocal = parseTextLocally(cleanedText);
       if (parsedLocal.length > 0) {
         setDisciplinas(parsedLocal);
         setExtractionSource('Parser Local Inteligente (Contingência)');
@@ -305,6 +320,77 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
     setDisciplinas(prev => prev.map((d, idx) => idx === index ? { ...d, weight: newWeight } : d));
   };
 
+  const toggleDisciplineExpand = (index: number) => {
+    setExpandedDisciplines(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const handleRemoveTopic = (discIndex: number, topicIndex: number) => {
+    setDisciplinas(prev => prev.map((d, idx) => {
+      if (idx !== discIndex) return d;
+      return {
+        ...d,
+        topicos: d.topicos.filter((_, tIdx) => tIdx !== topicIndex)
+      };
+    }));
+  };
+
+  const handleAddTopic = (discIndex: number, newTopicName: string) => {
+    const trimmed = newTopicName.trim();
+    if (!trimmed) return;
+    setDisciplinas(prev => prev.map((d, idx) => {
+      if (idx !== discIndex) return d;
+      return {
+        ...d,
+        topicos: [...d.topicos, { name: trimmed }]
+      };
+    }));
+  };
+
+  // Edição inline de Matéria
+  const handleStartEditDiscipline = (index: number, currentName: string) => {
+    setEditingDisciplineIndex(index);
+    setEditingDisciplineName(currentName);
+  };
+
+  const handleSaveDisciplineName = (index: number) => {
+    const trimmed = editingDisciplineName.trim();
+    if (trimmed) {
+      setDisciplinas(prev => prev.map((d, idx) => idx === index ? { ...d, name: trimmed } : d));
+    }
+    setEditingDisciplineIndex(null);
+  };
+
+  const handleCancelEditDiscipline = () => {
+    setEditingDisciplineIndex(null);
+  };
+
+  // Edição inline de Tópico
+  const handleStartEditTopic = (discIndex: number, topicIndex: number, currentName: string) => {
+    setEditingTopicKey(`${discIndex}-${topicIndex}`);
+    setEditingTopicName(currentName);
+  };
+
+  const handleSaveTopicName = (discIndex: number, topicIndex: number) => {
+    const trimmed = editingTopicName.trim();
+    if (trimmed) {
+      setDisciplinas(prev => prev.map((d, idx) => {
+        if (idx !== discIndex) return d;
+        return {
+          ...d,
+          topicos: d.topicos.map((t, tIdx) => tIdx === topicIndex ? { ...t, name: trimmed } : t)
+        };
+      }));
+    }
+    setEditingTopicKey(null);
+  };
+
+  const handleCancelEditTopic = () => {
+    setEditingTopicKey(null);
+  };
+
   const handleFinalSubmit = async () => {
     if (!organ.trim() || !role.trim()) {
       setErrorMessage('Preencha ao menos o Órgão e o Cargo do concurso.');
@@ -321,12 +407,17 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
     setIsSaving(true);
     setErrorMessage(null);
     try {
-      const finalTitle = title.trim() || `${organ.trim()} - ${role.trim()}`;
+      const cleanOrgan = organ.trim();
+      const cleanRole = role.trim();
+      const finalTitle = title.trim() || (cleanRole ? `${cleanOrgan} - ${cleanRole}` : cleanOrgan);
       await onSaveConcursoWithDisciplinas(
         {
           title: finalTitle,
-          organ: organ.trim(),
-          role: role.trim(),
+          titulo: finalTitle,
+          organ: cleanOrgan,
+          orgao: cleanOrgan,
+          nome: cleanOrgan,
+          role: cleanRole,
           banca: banca.trim() || 'A Definir',
           sphere,
           remuneration: parseFloat(remuneration) || 0,
@@ -811,50 +902,233 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
                   return tName.length > 0 && /[a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ]/.test(tName);
                 });
                 if (!disc.topicos || disc.topicos.length === 0 || validTopics.length === 0) return null;
+                const isExpanded = !!expandedDisciplines[idx];
 
                 return (
                   <div 
                     key={idx} 
-                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs"
+                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden transition-all"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div 
-                        className="w-3.5 h-3.5 rounded-full shrink-0" 
-                        style={{ backgroundColor: disc.color || '#10b981' }} 
-                      />
-                      <div className="min-w-0">
-                        <h5 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{disc.name}</h5>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {validTopics.length} tópico(s) cadastrado(s)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
-                        <span>Peso:</span>
-                        <select
-                          value={disc.weight}
-                          onChange={(e) => handleUpdateWeight(idx, parseFloat(e.target.value))}
-                          className="text-xs p-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                    <div className="p-3 flex items-center justify-between gap-3">
+                      {editingDisciplineIndex === idx ? (
+                        <div className="flex items-center gap-2 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                          <div 
+                            className="w-3.5 h-3.5 rounded-full shrink-0" 
+                            style={{ backgroundColor: disc.color || '#10b981' }} 
+                          />
+                          <input
+                            type="text"
+                            autoFocus
+                            value={editingDisciplineName}
+                            onChange={(e) => setEditingDisciplineName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveDisciplineName(idx);
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                handleCancelEditDiscipline();
+                              }
+                            }}
+                            className="flex-1 text-xs font-bold p-1 px-2 rounded-md border border-emerald-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                            placeholder="Nome da disciplina..."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveDisciplineName(idx)}
+                            className="p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors cursor-pointer"
+                            title="Salvar nome"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancelEditDiscipline}
+                            className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+                            title="Cancelar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div 
+                          className="flex items-center gap-3 min-w-0 cursor-pointer flex-1"
+                          onClick={() => toggleDisciplineExpand(idx)}
                         >
-                          <option value="1">1.0 (Baixo)</option>
-                          <option value="1.5">1.5</option>
-                          <option value="2">2.0 (Médio)</option>
-                          <option value="2.5">2.5</option>
-                          <option value="3">3.0 (Alto)</option>
-                        </select>
-                      </div>
+                          <div 
+                            className="w-3.5 h-3.5 rounded-full shrink-0" 
+                            style={{ backgroundColor: disc.color || '#10b981' }} 
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 group">
+                              <h5 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate hover:text-emerald-500 transition-colors">
+                                {disc.name}
+                              </h5>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartEditDiscipline(idx, disc.name);
+                                }}
+                                className="p-0.5 text-slate-400 hover:text-emerald-500 rounded transition-colors cursor-pointer opacity-70 hover:opacity-100"
+                                title="Editar nome da matéria"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              {disc.topicos.length} tópico(s) cadastrado(s)
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDiscipline(idx)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
-                        title="Remover matéria"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
+                          <span>Peso:</span>
+                          <select
+                            value={disc.weight}
+                            onChange={(e) => handleUpdateWeight(idx, parseFloat(e.target.value))}
+                            className="text-xs p-1 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="1">1.0 (Baixo)</option>
+                            <option value="1.5">1.5</option>
+                            <option value="2">2.0 (Médio)</option>
+                            <option value="2.5">2.5</option>
+                            <option value="3">3.0 (Alto)</option>
+                          </select>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleDisciplineExpand(idx)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition-colors cursor-pointer"
+                          title={isExpanded ? "Recolher tópicos" : "Ver tópicos da matéria"}
+                        >
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDiscipline(idx)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg transition-colors cursor-pointer"
+                          title="Remover matéria"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Lista expansível de tópicos para conferência e ajustes finos */}
+                    {isExpanded && (
+                      <div className="px-3 pb-3 pt-1 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 space-y-2">
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {disc.topicos.map((topico, tIdx) => {
+                            const isEditingThisTopic = editingTopicKey === `${idx}-${tIdx}`;
+
+                            if (isEditingThisTopic) {
+                              return (
+                                <div 
+                                  key={tIdx} 
+                                  className="flex items-center gap-1.5 p-1 px-2 bg-white dark:bg-slate-800 rounded-lg border border-emerald-500 text-xs shadow-xs"
+                                >
+                                  <span className="text-emerald-500 text-[11px] font-bold shrink-0">•</span>
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={editingTopicName}
+                                    onChange={(e) => setEditingTopicName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveTopicName(idx, tIdx);
+                                      } else if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        handleCancelEditTopic();
+                                      }
+                                    }}
+                                    className="flex-1 text-[11px] bg-transparent text-slate-900 dark:text-slate-100 focus:outline-hidden py-0.5"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveTopicName(idx, tIdx)}
+                                    className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 p-1 rounded transition-colors cursor-pointer shrink-0"
+                                    title="Salvar tópico"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelEditTopic}
+                                    className="text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 p-1 rounded transition-colors cursor-pointer shrink-0"
+                                    title="Cancelar"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div 
+                                key={tIdx} 
+                                className="flex items-center justify-between gap-2 p-1.5 px-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-200 group"
+                              >
+                                <span className="truncate flex-1 text-[11px]">• {topico.name}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditTopic(idx, tIdx, topico.name)}
+                                    className="text-slate-400 hover:text-emerald-500 p-0.5 rounded-sm transition-colors cursor-pointer opacity-70 hover:opacity-100"
+                                    title="Editar tópico"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveTopic(idx, tIdx)}
+                                    className="text-slate-400 hover:text-rose-500 p-0.5 rounded-sm transition-colors cursor-pointer"
+                                    title="Excluir tópico"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Adicionar Tópico Rápido */}
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <input
+                            type="text"
+                            placeholder="Adicionar novo tópico a esta matéria..."
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddTopic(idx, e.currentTarget.value);
+                                e.currentTarget.value = '';
+                              }
+                            }}
+                            className="flex-1 text-[11px] p-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                              if (input && input.value) {
+                                handleAddTopic(idx, input.value);
+                                input.value = '';
+                              }
+                            }}
+                            className="p-1.5 px-2.5 text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Adicionar</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

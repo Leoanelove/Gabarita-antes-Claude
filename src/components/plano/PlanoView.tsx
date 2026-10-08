@@ -50,6 +50,7 @@ interface PlanoViewProps {
   concursos: Concurso[];
   disciplinas: Disciplina[];
   assuntos: Assunto[];
+  activeConcursoId?: string;
   studyMethod?: StudyMethod;
   onNavigateTab?: (tab: any) => void;
   onSwitchMethod?: (method: StudyMethod) => Promise<void> | void;
@@ -76,6 +77,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
   concursos,
   disciplinas,
   assuntos,
+  activeConcursoId,
   studyMethod = 'ciclo',
   onSwitchMethod,
   onRecalculatePlan,
@@ -95,6 +97,24 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
   onRemoveCycle,
   onNavigateTab,
 }) => {
+  const effectiveActiveConcursoId = useMemo(() => {
+    return activeConcursoId || concursos.find(c => c.active)?.id || concursos[0]?.id || '';
+  }, [activeConcursoId, concursos]);
+
+  const activeConcurso = useMemo(() => {
+    return concursos.find(c => c.id === effectiveActiveConcursoId) || concursos[0] || null;
+  }, [concursos, effectiveActiveConcursoId]);
+
+  const activeDisciplinas = useMemo(() => {
+    if (!effectiveActiveConcursoId) return disciplinas;
+    return disciplinas.filter(d => d.concursoId === effectiveActiveConcursoId);
+  }, [disciplinas, effectiveActiveConcursoId]);
+
+  const activeAssuntos = useMemo(() => {
+    const discIds = new Set(activeDisciplinas.map(d => d.id));
+    return assuntos.filter(a => discIds.has(a.disciplinaId));
+  }, [assuntos, activeDisciplinas]);
+
   if (concursos.length === 0) {
     return (
       <EmptyContestState
@@ -106,7 +126,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
     );
   }
 
-  if (disciplinas.length === 0) {
+  if (activeDisciplinas.length === 0) {
     return (
       <EmptyContestState
         title="Nenhuma disciplina cadastrada no concurso ativo"
@@ -117,24 +137,47 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
     );
   }
 
-  const effectivePlan: StudyPlan = plan || {
-    id: 'plan_fallback',
-    concursoId: concursos[0]?.id || '',
-    concursoTitle: concursos[0]?.title || '',
-    userId: 'user_demo_01',
-    startDate: new Date().toISOString().split('T')[0],
-    targetExamDate: new Date(Date.now() + 86400000 * 90).toISOString().split('T')[0],
-    dailyAverageMinutes: 240,
-    totalWeeks: 12,
-    totalPlannedHours: 288,
-    weeklyAvailability: { seg: 240, ter: 240, qua: 240, qui: 240, sex: 240, sab: 180, dom: 120 },
-    disciplinasDistribution: [],
-    sessions: [],
-    conflicts: [],
-    historyLogs: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  const [currentCycle, setCurrentCycle] = useState<StudyCycle | null>(() => {
+    if (cycle && cycle.concursoId === effectiveActiveConcursoId) return cycle;
+    return null;
+  });
+
+  useEffect(() => {
+    if (cycle && cycle.concursoId === effectiveActiveConcursoId) {
+      setCurrentCycle(cycle);
+    } else if (effectiveActiveConcursoId) {
+      DatabaseService.getStudyCycle(effectiveActiveConcursoId).then((c) => {
+        setCurrentCycle(c);
+      });
+    }
+  }, [cycle, effectiveActiveConcursoId]);
+
+  const effectivePlan: StudyPlan = useMemo(() => {
+    if (plan && (!effectiveActiveConcursoId || plan.concursoId === effectiveActiveConcursoId)) {
+      return plan;
+    }
+    const resolvedTitle = activeConcurso
+      ? `${activeConcurso.organ || activeConcurso.orgao || activeConcurso.title} - ${activeConcurso.role}`
+      : concursos[0]?.title || '';
+    return {
+      id: `plan_${effectiveActiveConcursoId || 'fallback'}`,
+      concursoId: effectiveActiveConcursoId || concursos[0]?.id || '',
+      concursoTitle: resolvedTitle,
+      userId: 'user_demo_01',
+      startDate: new Date().toISOString().split('T')[0],
+      targetExamDate: activeConcurso?.examDate ? activeConcurso.examDate.split('T')[0] : new Date(Date.now() + 86400000 * 90).toISOString().split('T')[0],
+      dailyAverageMinutes: 240,
+      totalWeeks: 12,
+      totalPlannedHours: 288,
+      weeklyAvailability: { seg: 240, ter: 240, qua: 240, qui: 240, sex: 240, sab: 180, dom: 120 },
+      disciplinasDistribution: [],
+      sessions: [],
+      conflicts: [],
+      historyLogs: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }, [plan, effectiveActiveConcursoId, activeConcurso, concursos]);
 
   const [activeTab, setActiveTab] = useState<'ciclo' | 'cronograma'>(studyMethod === 'cronograma' ? 'cronograma' : 'ciclo');
   const [isMethodModalOpen, setIsMethodModalOpen] = useState(false);
@@ -298,6 +341,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
   };
 
   const handleCycleCreated = async (newCycle: StudyCycle) => {
+    setCurrentCycle(newCycle);
     if (onRecalculateCycle) {
       await onRecalculateCycle();
     }
@@ -377,11 +421,11 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
       {/* Conteúdo da Aba Ativa */}
       {activeTab === 'ciclo' ? (
         <CicloView
-          cycle={cycle || {
-            id: 'cycle_default',
+          cycle={currentCycle || cycle || {
+            id: `cycle_${effectiveActiveConcursoId}`,
             userId: 'user',
-            concursoId: plan?.concursoId || '',
-            concursoTitle: plan?.concursoTitle || 'Plano Personalizado',
+            concursoId: effectiveActiveConcursoId || '',
+            concursoTitle: activeConcurso ? `${activeConcurso.organ || activeConcurso.orgao || activeConcurso.title} - ${activeConcurso.role}` : 'Plano Personalizado',
             currentBlockIndex: 0,
             completedCyclesCount: 0,
             totalCycleMinutes: 0,
@@ -389,8 +433,10 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           }}
-          disciplinas={disciplinas}
-          assuntos={assuntos}
+          disciplinas={activeDisciplinas}
+          assuntos={activeAssuntos}
+          activeConcursoId={effectiveActiveConcursoId}
+          concursos={concursos}
           onAdvanceCycle={onAdvanceCycle}
           onRewindCycle={onRewindCycle}
           onRecordCycleProgress={onRecordCycleProgress}
@@ -398,8 +444,15 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
           onRecalculateCycle={onRecalculateCycle}
           onUpdateCycleBlock={onUpdateCycleBlock}
           onOpenStudyTimer={onOpenStudyTimer}
+          onSaveNewCycle={async (newC) => {
+            setCurrentCycle(newC);
+          }}
           onSwitchMethod={onSwitchMethod}
-          onRemoveCycle={onRemoveCycle}
+          onRemoveCycle={async () => {
+            if (onRemoveCycle) await onRemoveCycle();
+            const cleared = await DatabaseService.removeStudyCycle();
+            setCurrentCycle(cleared);
+          }}
           onReplan={() => setIsMethodModalOpen(true)}
         />
       ) : (
@@ -495,8 +548,8 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
           {/* Visualização de Calendário Executível */}
           <CalendarView
             plan={effectivePlan}
-            disciplinas={disciplinas}
-            assuntos={assuntos}
+            disciplinas={activeDisciplinas}
+            assuntos={activeAssuntos}
             concursos={concursos}
             onRescheduleSession={onRescheduleSession}
             onBatchRescheduleOverdue={onBatchRescheduleOverdue}
@@ -589,8 +642,10 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
         isOpen={isCreateCycleModalOpen}
         onClose={() => setIsCreateCycleModalOpen(false)}
         disciplinas={disciplinas}
-        currentCycle={cycle}
+        currentCycle={currentCycle || cycle}
         assuntos={assuntos}
+        activeConcursoId={effectiveActiveConcursoId}
+        concursos={concursos}
         onCycleCreated={handleCycleCreated}
       />
 
@@ -602,6 +657,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
         disciplinas={disciplinas}
         assuntos={assuntos}
         concursos={concursos}
+        activeConcursoId={effectiveActiveConcursoId}
         onPlanCreated={handleScheduleCreated}
       />
     </div>

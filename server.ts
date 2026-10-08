@@ -66,25 +66,117 @@ app.post('/api/edital/parse', async (req, res) => {
           },
         });
 
-        const systemInstruction = `Você é um especialista em processar editais de concursos públicos brasileiros.
-Sua única função é receber o texto bruto de conteúdo programático colado pelo usuário e convertê-lo em um array JSON estrito de matérias.
+        const systemInstruction = `Você é um analisador semântico especializado em conteúdo programático de concursos públicos brasileiros (Cebraspe, FGV, FCC, Vunesp, Cesgranrio, AOCP, etc.).
+Sua missão é ler o texto bruto colado pelo candidato e convertê-lo em uma estrutura hierárquica limpa: Disciplinas -> Tópicos.
 
-ESTRUTURA DE CADA OBJETO NO ARRAY:
-- "nome": Nome exato da matéria (ex: "Língua Portuguesa", "Direito Constitucional", "Direito Administrativo").
-- "sigla": Sigla curta de até 4 letras maiúsculas (ex: "PORT", "DCON", "DADM", "RLOG", "INFO").
-- "topicos": Lista de strings com cada assunto daquela matéria, rigorosamente limpa de numerações e marcadores iniciais (ex: transformar "1.1 Sintaxe" em apenas "Sintaxe", "1 Compreensão e interpretação de textos" em apenas "Compreensão e interpretação de textos", "2. Atos administrativos" em apenas "Atos administrativos").
+REGRAS DE EXTRAÇÃO UNIVERSAL:
 
-REGRAS RÍGIDAS DE EXTRAÇÃO:
-1. NUNCA invente matérias ou tópicos que não constem expressamente no texto bruto colado. Extraia exclusivamente o que foi colado.
-2. Ignore números de páginas, paginações e cabeçalhos genéricos de agrupamento do edital (ex: "CONHECIMENTOS BÁSICOS", "CONHECIMENTOS ESPECÍFICOS", "PROVA OBJETIVA", "CONTEÚDO PROGRAMÁTICO").
-3. Remova números (1., 1.1, 2.), traços, pontos ou marcadores (•, -, *) no início de cada tópico.
-4. Separe cada assunto em um item individual no array de tópicos.
-5. Retorne APENAS o JSON válido.`;
+1. PROIBIÇÃO DE MATÉRIA GENÉRICA:
+- É terminantemente PROIBIDO criar matérias com nomes genéricos como "Conhecimentos do Edital", "Geral", "Matérias", "Conteúdo Programático" ou "Conhecimentos Comuns/Específicos".
+- Um edital DEVE conter múltiplas disciplinas autônomas (Língua Portuguesa, Raciocínio Lógico, História e Geografia, Noções de Direito Constitucional, etc.).
+- NUNCA agrupe o edital inteiro dentro de uma única matéria fictícia.
+
+2. INTEGRIDADE DO NOME DA DISCIPLINA:
+- Preposições e complementos contidos na mesma linha do título pertencem integralmente ao nome da matéria (ex: "HISTÓRIA E GEOGRAFIA DE GOIÁS" deve ser "História e Geografia de Goiás", e JAMAIS "História e Geografia" com "DE GOIÁS..." caindo como primeiro tópico).
+- Mantenha a denominação territorial ou institucional completa (ex: "História e Geografia de Goiás", "Legislação do Município de Goiânia", "Direito da Criança e do Adolescente").
+- Limpe informações de prova e pesos entre parênteses do nome da disciplina (ex: "(15 questões)", "(peso 1)", "(5 questões)", "(10 itens)" são descartados).
+- Normalize o nome da matéria em Title Case (ex: "Língua Portuguesa", "História e Geografia de Goiás", "Legislação Complementar", "Noções de Direito Constitucional").
+
+3. FALSOS POSITIVOS NO MEIO DE FRASES (PROTEÇÃO CRÍTICA):
+- Um ramo do conhecimento só é considerado início de NOVA DISCIPLINA se estiver como cabeçalho ou linha ISOLADA no texto.
+- Um título de disciplina NUNCA pode ser criado a partir de uma menção temática que esteja sintaticamente no meio de uma frase (ex: "Normas relativas à Administração Pública", "...sobre Direito Tributário...", "...conforme Código Civil..."). Termos que surjam no meio de uma frase gramatical pertencem estritamente ao tópico da disciplina corrente e JAMAIS abrem uma nova disciplina!
+
+4. DEMARCADORES DE PROVA E DISCIPLINAS QUE NUNCA DEVEM VIRAR TÓPICOS:
+- Nomes de cargos e áreas (ex: 'ANALISTA JUDICIÁRIO – ÁREA...', 'TÉCNICO...', 'CARGO 1:', 'CARGO 2:') são demarcadores de prova, JAMAIS devem se tornar tópicos de estudo de nenhuma disciplina.
+- Cabeçalhos que introduzem áreas autônomas de saber ou leis (ex: "LEGISLAÇÃO COMPLEMENTAR (10 questões)", "NOÇÕES DE INFORMÁTICA", "DIREITO ADMINISTRATIVO") encerram imediatamente a matéria anterior e DEVEM abrir um novo objeto dentro do array "disciplinas". Jamais os insira como tópicos da matéria anterior!
+
+5. CRITÉRIO RIGOROSO PARA TÓPICOS:
+- Cada tópico deve representar uma unidade temática e gramatical completa com sentido pleno.
+- Se houver numeração explícita ("1.", "1.1", "a)", "•", "-"): separe pelos marcadores, removendo a numeração prefixada.
+- Se o texto for corrido ou contínuo: divida pelo sentido sintático dos conceitos, guiando-se por pontos finais (.) ou pontos e vírgulas (;).
+- NUNCA quebre um tópico no meio de uma locução verbal, sintagma preposicional ou citação explicativa. Frases explicativas entre parênteses pertencem integralmente ao tópico pai e jamais devem virar tópicos isolados.
+- NUNCA crie tópicos que comecem ou terminem com conectivos ou preposições soltas ("da", "de", "do", "e", "para", "em", "com").
+
+6. EXPURGO DE RUÍDOS DE PÁGINA:
+- Descarte sumariamente: cabeçalhos de bloco ("CONHECIMENTOS COMUNS", "CONHECIMENTOS ESPECÍFICOS", nomes de cargos), carimbos de processos eletrônicos (ex: "Nº Processo PROAD...", "Processo SEI nº..."), assinaturas digitais ("Assinado digitalmente por...", "Para validar este documento...") e hashes/códigos de validação.
+
+7. EXEMPLO PRÁTICO DE ENTRADA E SAÍDA (FEW-SHOT):
+
+Texto de Entrada Bruto:
+"""
+CONHECIMENTOS COMUNS
+LÍNGUA PORTUGUESA (15 questões)
+Leitura e interpretação de textos. Ortografia oficial. Pontuação. Concordância nominal e verbal.
+HISTÓRIA E GEOGRAFIA DE GOIÁS (5 questões)
+Povoamento e formação territorial. Economia e sociedade no século XX.
+LEGISLAÇÃO COMPLEMENTAR (10 questões)
+Regime jurídico dos servidores públicos civis. Estatuto dos Servidores.
+CONHECIMENTOS ESPECÍFICOS
+NOÇÕES DE DIREITO CONSTITUCIONAL
+Direitos e garantias fundamentais. Princípios constitucionais relativos à Administração Pública. Remédios constitucionais.
+Nº Processo PROAD 98765/2024 - Assinado digitalmente por Desembargador Presidente. Para validar este documento acesse o link https://tjgo.jus.br/validar
+"""
+
+Saída JSON Obrigatória:
+{
+  "disciplinas": [
+    {
+      "name": "Língua Portuguesa",
+      "topicos": [
+        "Leitura e interpretação de textos",
+        "Ortografia oficial",
+        "Pontuação",
+        "Concordância nominal e verbal"
+      ]
+    },
+    {
+      "name": "História e Geografia de Goiás",
+      "topicos": [
+        "Povoamento e formação territorial",
+        "Economia e sociedade no século XX"
+      ]
+    },
+    {
+      "name": "Legislação Complementar",
+      "topicos": [
+        "Regime jurídico dos servidores públicos civis",
+        "Estatuto dos Servidores"
+      ]
+    },
+    {
+      "name": "Noções de Direito Constitucional",
+      "topicos": [
+        "Direitos e garantias fundamentais",
+        "Princípios constitucionais relativos à Administração Pública",
+        "Remédios constitucionais"
+      ]
+    }
+  ]
+}
+
+SCHEMA JSON DE SAÍDA:
+{
+  "disciplinas": [
+    {
+      "name": "Nome da Matéria",
+      "topicos": ["Tópico 1", "Tópico 2"]
+    }
+  ]
+}`;
         
         const prompt = `${systemInstruction}
 
-Texto bruto do edital a ser processado (Cargo: "${cargo || 'Geral'}", Concurso: "${concursoTitle || 'Certame'}"):
-${trimmedText.slice(0, 35000)}`;
+TEXTO BRUTO DO EDITAL A SER ANALISADO (Cargo: "${cargo || 'Geral'}", Concurso: "${concursoTitle || 'Certame'}"):
+\"\"\"
+${trimmedText.slice(0, 45000)}
+\"\"\"
+
+ATENÇÃO RIGOROSA:
+- É expressamente PROIBIDO criar matérias com nomes genéricos como "Conhecimentos do Edital", "Geral", "Matérias" ou "Conteúdo Programático".
+- Preserve o nome integral da disciplina com seu território/ramo (ex: "História e Geografia de Goiás", e NÃO cortar em "DE GOIÁS").
+- "Legislação Complementar" é uma matéria independente e NÃO pode virar tópico de outra matéria.
+- Frases no meio do texto mencionando "...relativas à Administração Pública..." pertencem ao tópico atual e NÃO abrem nova matéria.
+- Remova e descarte carimbos ("Nº Processo PROAD...", "Assinado digitalmente por...") e metadados de questões ("(15 questões)").`;
         
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -93,26 +185,33 @@ ${trimmedText.slice(0, 35000)}`;
             systemInstruction,
             responseMimeType: 'application/json',
             responseSchema: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  nome: { type: Type.STRING },
-                  sigla: { type: Type.STRING },
-                  topicos: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
+              type: Type.OBJECT,
+              properties: {
+                disciplinas: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      topicos: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                      }
+                    },
+                    required: ['name', 'topicos']
                   }
-                },
-                required: ['nome', 'sigla', 'topicos']
-              }
+                }
+              },
+              required: ['disciplinas']
             }
           }
         });
 
         if (response.text) {
           const parsedRaw = JSON.parse(response.text);
-          const rawItemsArray = Array.isArray(parsedRaw) ? parsedRaw : (parsedRaw.disciplinas || parsedRaw.edital || parsedRaw.syllabus || []);
+          const rawItemsArray = Array.isArray(parsedRaw)
+            ? parsedRaw
+            : (parsedRaw.disciplinas || parsedRaw.edital || parsedRaw.syllabus || []);
           const sanitizedSyllabus: ParsedSyllabusItem[] = sanitizeSyllabusData(rawItemsArray);
 
           if (sanitizedSyllabus.length > 0) {
@@ -193,166 +292,6 @@ ${trimmedText.slice(0, 35000)}`;
     return res.status(500).json({ error: msg });
   }
 });
-
-function parseEditalHeuristic(rawText: string, cargo?: string, concursoTitle?: string) {
-  // 4. RESTAURAÇÃO DE ESPAÇOS: Corrige nomes de disciplinas colados comuns vindos de extração de PDF
-  let sanitized = rawText
-    .replace(/\bDIREITOCONSTITUCIONAL\b/gi, 'DIREITO CONSTITUCIONAL')
-    .replace(/\bDIREITOADMINISTRATIVO\b/gi, 'DIREITO ADMINISTRATIVO')
-    .replace(/\bLÍNGUAPORTUGUESA\b/gi, 'LÍNGUA PORTUGUESA')
-    .replace(/\bLINGUAPORTUGUESA\b/gi, 'LÍNGUA PORTUGUESA')
-    .replace(/\bLEIORGÂNICADODISTRITOFEDERAL\b/gi, 'LEI ORGÂNICA DO DISTRITO FEDERAL')
-    .replace(/\bLEIORGANICADODISTRITOFEDERAL\b/gi, 'LEI ORGÂNICA DO DISTRITO FEDERAL')
-    .replace(/\bLEIORGÂNICA\b/gi, 'LEI ORGÂNICA')
-    .replace(/\bDIREITOPENAL\b/gi, 'DIREITO PENAL')
-    .replace(/\bDIREITOPROCESSUALPENAL\b/gi, 'DIREITO PROCESSUAL PENAL')
-    .replace(/\bDIREITOPROCESSUALCIVIL\b/gi, 'DIREITO PROCESSUAL CIVIL')
-    .replace(/\bDIREITOTRIBUTÁRIO\b/gi, 'DIREITO TRIBUTÁRIO')
-    .replace(/\bDIREITOCIVIL\b/gi, 'DIREITO CIVIL')
-    .replace(/\bRACIOCÍNIOLÓGICO\b/gi, 'RACIOCÍNIO LÓGICO')
-    .replace(/\bRACIOCINIOLOGICO\b/gi, 'RACIOCÍNIO LÓGICO')
-    .replace(/\bNOÇÕESDEINFORMÁTICA\b/gi, 'NOÇÕES DE INFORMÁTICA')
-    .replace(/\bADMINISTRAÇÃOPÚBLICA\b/gi, 'ADMINISTRAÇÃO PÚBLICA')
-    .replace(/\bCONTABILIDADEGERAL\b/gi, 'CONTABILIDADE GERAL');
-
-  // 3. ANTI-AGLUTINAÇÃO: Quebra disciplina colada com primeiro tópico (ex: "LÍNGUAPORTUGUESA1Compreensão" ou "LÍNGUA PORTUGUESA1Compreensão")
-  sanitized = sanitized
-    .replace(/([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,})(\d+(?:\.\d+)*\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç])/g, '$1\n$2')
-    .replace(/([A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}):(\d)/g, '$1:\n$2');
-
-  const lines = sanitized.split('\n').map(l => l.trim()).filter(Boolean);
-  const colors = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6'];
-  
-  const editalItems: { disciplina: string; topicos: string[] }[] = [];
-  let currentEditalItem: { disciplina: string; topicos: string[] } | null = null;
-
-  // 5. LIMPEZA DE CABEÇALHOS: Ignora numerações estruturais como "15.2.2 CONHECIMENTOS BÁSICOS"
-  const isStructuralHeader = (line: string) => {
-    const cleaned = line.replace(/^[0-9\.\-\)\s]+/, '').trim().toUpperCase();
-    return /^(?:CONHECIMENTOS\s+(?:BÁSICOS|ESPECÍFICOS|GERAIS|COMPLEMENTARES)|CONTEÚDO\s+PROGRAMÁTICO|DOS\s+OBJETOS\s+DE\s+AVALIAÇÃO|PROVA\s+OBJETIVA|CARGO\s*\d*)/i.test(cleaned);
-  };
-
-  // 1. HIERARQUIA ABSOLUTA: Reconhece cabeçalho de disciplina isolando a disciplina e sem juntar o primeiro tópico
-  const isDisciplinaHeader = (line: string): { isHeader: boolean; cleanTitle: string; remainderTopic?: string } => {
-    if (isStructuralHeader(line)) {
-      return { isHeader: false, cleanTitle: '' };
-    }
-
-    // Caso de linha com tópico emendado: "LÍNGUA PORTUGUESA: 1 Compreensão..." ou "LEI ORGÂNICA DO DISTRITO FEDERAL 1 Fundamentos..."
-    const gluedMatch = line.match(/^([A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]{3,45}?)(?::|\s*-)?\s*(\d+(?:\.\d+)*\s+.*)$/);
-    if (gluedMatch) {
-      const candidateTitle = gluedMatch[1].replace(/^[0-9\.\-\)\s]+/, '').trim();
-      if (candidateTitle.length >= 3 && candidateTitle === candidateTitle.toUpperCase()) {
-        return { isHeader: true, cleanTitle: candidateTitle.toUpperCase(), remainderTopic: gluedMatch[2].trim() };
-      }
-    }
-
-    const upper = line.toUpperCase().replace(/^[0-9\.\-\)\s]+/, '').trim();
-    const knownDisciplinas = [
-      'LÍNGUA PORTUGUESA', 'PORTUGUÊS', 'DIREITO CONSTITUCIONAL', 'DIREITO ADMINISTRATIVO', 
-      'LEI ORGÂNICA DO DISTRITO FEDERAL', 'LEI ORGÂNICA', 'RACIOCÍNIO LÓGICO', 'RACIOCÍNIO LÓGICO-MATEMÁTICO', 
-      'DIREITO TRIBUTÁRIO', 'CONTABILIDADE GERAL', 'CONTABILIDADE PÚBLICA', 'CONTABILIDADE', 'AUDITORIA', 
-      'ADMINISTRAÇÃO PÚBLICA', 'ADMINISTRAÇÃO GERAL', 'DIREITO PENAL', 'DIREITO PROCESSUAL PENAL', 
-      'DIREITO PROCESSUAL CIVIL', 'DIREITO CIVIL', 'LEGISLAÇÃO ESPECÍFICA', 'LEGISLAÇÃO ESPECIAL', 
-      'INFORMÁTICA', 'NOÇÕES DE INFORMÁTICA', 'DIREITO FINANCEIRO', 'ÉTICA NO SERVIÇO PÚBLICO', 
-      'NORMAS DA CORREGEDORIA'
-    ];
-
-    const matchedKnown = knownDisciplinas.find(k => upper === k || upper.startsWith(k + ':') || upper.startsWith(k + ' -') || upper.startsWith(k + '.'));
-    if (matchedKnown) {
-      const rest = upper.slice(matchedKnown.length).replace(/^[:\-\.]\s*/, '').trim();
-      return { isHeader: true, cleanTitle: matchedKnown, remainderTopic: rest || undefined };
-    }
-
-    // Se a linha for totalmente em maiúsculas (sem pontuação final, sem ser frase descritiva longa e sem iniciar com numeração de tópico)
-    if (line.length <= 50 && line === line.toUpperCase() && !/^\d+[\.\)]\s/.test(line) && !line.endsWith('.')) {
-      const clean = line.replace(/^[0-9\.\-\)\s]+/, '').replace(/[:\-]$/, '').trim();
-      if (clean.length >= 3 && !isStructuralHeader(clean)) {
-        return { isHeader: true, cleanTitle: clean };
-      }
-    }
-
-    return { isHeader: false, cleanTitle: '' };
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Pula cabeçalhos estruturais puros
-    if (isStructuralHeader(line) && !line.includes(':') && !/\d+\s+[A-Za-z]/.test(line)) {
-      continue;
-    }
-
-    const headerCheck = isDisciplinaHeader(line);
-
-    if (headerCheck.isHeader) {
-      // 1. HIERARQUIA ABSOLUTA: Nova disciplina sempre fecha a anterior e inicia uma nova na raiz
-      currentEditalItem = {
-        disciplina: headerCheck.cleanTitle.toUpperCase(),
-        topicos: []
-      };
-      editalItems.push(currentEditalItem);
-
-      if (headerCheck.remainderTopic) {
-        const subSegments = headerCheck.remainderTopic.split(/(?=\b\d+(?:\.\d+)*[\.\)\-\s])/).map(s => s.trim()).filter(Boolean);
-        for (const seg of subSegments) {
-          currentEditalItem.topicos.push(seg);
-        }
-      }
-      continue;
-    }
-
-    if (!currentEditalItem) {
-      currentEditalItem = {
-        disciplina: 'CONHECIMENTOS GERAIS',
-        topicos: []
-      };
-      editalItems.push(currentEditalItem);
-    }
-
-    // 2. IDENTIFICAÇÃO DE TÓPICOS: Qualquer frase que inicie com número é um tópico
-    const numberedMatches = line.split(/(?=\b\d+(?:\.\d+)*[\.\)]\s+)/).map(s => s.trim()).filter(Boolean);
-    if (numberedMatches.length > 1) {
-      for (const seg of numberedMatches) {
-        currentEditalItem.topicos.push(seg);
-      }
-    } else {
-      currentEditalItem.topicos.push(line);
-    }
-  }
-
-  if (editalItems.length === 0 || editalItems.every(e => e.topicos.length === 0)) {
-    editalItems.push({
-      disciplina: 'CONTEÚDO PROGRAMÁTICO',
-      topicos: ['1 Disposições gerais e tópicos do edital', '2 Fundamentos e matérias para estudo']
-    });
-  }
-
-  const disciplinas = editalItems.map((item, idx) => {
-    const isSpecific = item.disciplina.includes('ESPECÍF') || item.disciplina.includes('DIREITO') || item.disciplina.includes('CONTAB');
-    return {
-      name: item.disciplina,
-      weight: isSpecific ? 2.5 : 2.0,
-      color: colors[idx % colors.length],
-      code: item.disciplina.replace(/[^A-Z]/g, '').slice(0, 4) || 'MAT',
-      topicos: item.topicos.map(t => ({
-        name: t.replace(/^\d+(?:\.\d+)*[\.\)\-\s]+/, '').trim() || t,
-        rawText: t,
-        importance: 'alta' as const,
-        difficulty: 'media' as const,
-        notes: '',
-        subtopicos: []
-      }))
-    };
-  });
-
-  return {
-    concursoTitle: concursoTitle || 'Certame Importado',
-    cargo: cargo || 'Cargo Geral',
-    edital: editalItems,
-    disciplinas
-  };
-}
 
 // Endpoint: AI Assistant with sanitized user data handling
 app.post('/api/ai/assistant', async (req, res) => {
