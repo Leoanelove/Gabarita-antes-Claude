@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // User profiles & private subcollections (Strict isolation)
+    match /users/{userId} {
+      allow get, update: if isOwner(userId);
+      allow create: if isOwner(userId) 
+        && request.resource.data.id == userId
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if isOwner(userId);
+
+      match /metas/{metaId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /sessoes/{sessaoId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /revisoes/{revisaoId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /simulados/{simuladoId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /notificacoes/{notificacaoId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Concursos (Read for all authenticated; write by authenticated users)
+    match /concursos/{concursoId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Disciplinas & Assuntos
+    match /disciplinas/{disciplinaId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+      match /assuntos/{assuntoId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isSignedIn();
+      }
+    }
+
+    // Banco de Questões
+    match /questoes/{questaoId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    // Study plans and cycles
+    match /study_plans/{planId} {
+      allow read, write: if isSignedIn();
+    }
+    match /study_cycles/{cycleId} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

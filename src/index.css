@@ -1,0 +1,2447 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Dancing+Script:wght@600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   SISTEMA DE TEMAS VISUAIS (SKINS) - GABARITA CONCURSOS
+   Paletas: Verde (Original), Azul (Foco), Rosa (Suave)
+   ========================================================================== */
+
+:root,
+[data-skin="verde"],
+.skin-verde,
+.theme-green {
+  --primary-color: #059669;
+  --primary-hover: #10b981;
+  --primary-active: #047857;
+  --primary-text: #059669;
+  --primary-text-dark: #34d399;
+  --primary-light: rgba(16, 185, 129, 0.12);
+  --primary-light-border: rgba(16, 185, 129, 0.3);
+  --secondary-color: #0d9488;
+  --accent-color: #06b6d4;
+  --chart-glow: rgba(16, 185, 129, 0.25);
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #022c22 100%);
+  --banner-border: rgba(16, 185, 129, 0.35);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18);
+  --banner-badge-bg: rgba(16, 185, 129, 0.2);
+  --banner-badge-text: #6ee7b7;
+  --banner-badge-border: rgba(16, 185, 129, 0.35);
+  --banner-highlight-text: #6ee7b7;
+  --banner-progress-from: #10b981;
+  --banner-progress-to: #2dd4bf;
+  --banner-progress-border: rgba(16, 185, 129, 0.25);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(16, 185, 129, 0.32) 0%, transparent 60%), linear-gradient(135deg, #064e3b 0%, #0f172a 50%, #022c22 100%);
+  --revisoes-banner-border: rgba(16, 185, 129, 0.35);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18);
+  --revisoes-pill-bg: rgba(16, 185, 129, 0.2);
+  --revisoes-pill-border: rgba(16, 185, 129, 0.35);
+  --revisoes-pill-text: #6ee7b7;
+  --revisoes-pill-icon: #34d399;
+  --badge-pill-bg: rgba(16, 185, 129, 0.15);
+  --badge-pill-text: #34d399;
+  --badge-pill-border: rgba(16, 185, 129, 0.3);
+}
+
+[data-skin="azul"],
+.skin-azul,
+.theme-blue {
+  --primary-color: #2563eb;
+  --primary-hover: #3b82f6;
+  --primary-active: #1d4ed8;
+  --primary-text: #2563eb;
+  --primary-text-dark: #60a5fa;
+  --primary-light: rgba(37, 99, 235, 0.12);
+  --primary-light-border: rgba(37, 99, 235, 0.3);
+  --secondary-color: #0284c7;
+  --accent-color: #06b6d4;
+  --chart-glow: rgba(37, 99, 235, 0.25);
+  --card-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.08), 0 2px 5px -1px rgba(6, 182, 212, 0.05);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(37, 99, 235, 0.45) 0%, transparent 65%), linear-gradient(135deg, #0b1329 0%, #172554 50%, #0f172a 100%);
+  --banner-border: rgba(59, 130, 246, 0.45);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(37, 99, 235, 0.3);
+  --banner-badge-bg: rgba(37, 99, 235, 0.25);
+  --banner-badge-text: #93c5fd;
+  --banner-badge-border: rgba(59, 130, 246, 0.45);
+  --banner-highlight-text: #60a5fa;
+  --banner-progress-from: #2563eb;
+  --banner-progress-to: #38bdf8;
+  --banner-progress-border: rgba(59, 130, 246, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(37, 99, 235, 0.42) 0%, transparent 60%), linear-gradient(135deg, #172554 0%, #0f172a 50%, #0b1329 100%);
+  --revisoes-banner-border: rgba(59, 130, 246, 0.45);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(37, 99, 235, 0.3);
+  --revisoes-pill-bg: rgba(37, 99, 235, 0.25);
+  --revisoes-pill-border: rgba(59, 130, 246, 0.45);
+  --revisoes-pill-text: #93c5fd;
+  --revisoes-pill-icon: #60a5fa;
+  --badge-pill-bg: rgba(37, 99, 235, 0.15);
+  --badge-pill-text: #60a5fa;
+  --badge-pill-border: rgba(59, 130, 246, 0.3);
+}
+
+[data-skin="rosa"],
+.skin-rosa,
+.theme-pink {
+  --primary-color: #db2777;
+  --primary-hover: #ec4899;
+  --primary-active: #be185d;
+  --primary-text: #db2777;
+  --primary-text-dark: #f472b6;
+  --primary-light: rgba(219, 39, 119, 0.12);
+  --primary-light-border: rgba(219, 39, 119, 0.3);
+  --secondary-color: #a855f7;
+  --accent-color: #d946ef;
+  --chart-glow: rgba(219, 39, 119, 0.25);
+  --card-shadow: 0 6px 22px -2px rgba(219, 39, 119, 0.08), 0 2px 8px -1px rgba(168, 85, 247, 0.05);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(219, 39, 119, 0.4) 0%, transparent 65%), linear-gradient(135deg, #180914 0%, #831843 50%, #0f172a 100%);
+  --banner-border: rgba(244, 114, 182, 0.4);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(219, 39, 119, 0.25);
+  --banner-badge-bg: rgba(219, 39, 119, 0.25);
+  --banner-badge-text: #fbcfe8;
+  --banner-badge-border: rgba(244, 114, 182, 0.45);
+  --banner-highlight-text: #f472b6;
+  --banner-progress-from: #db2777;
+  --banner-progress-to: #f472b6;
+  --banner-progress-border: rgba(244, 114, 182, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(219, 39, 119, 0.38) 0%, transparent 60%), linear-gradient(135deg, #831843 0%, #0f172a 50%, #180914 100%);
+  --revisoes-banner-border: rgba(244, 114, 182, 0.4);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(219, 39, 119, 0.25);
+  --revisoes-pill-bg: rgba(219, 39, 119, 0.25);
+  --revisoes-pill-border: rgba(244, 114, 182, 0.45);
+  --revisoes-pill-text: #fbcfe8;
+  --revisoes-pill-icon: #f472b6;
+  --badge-pill-bg: rgba(219, 39, 119, 0.15);
+  --badge-pill-text: #f472b6;
+  --badge-pill-border: rgba(244, 114, 182, 0.3);
+}
+
+[data-skin="roxo"],
+[data-skin="purple"],
+.skin-roxo,
+.skin-purple,
+body.theme-purple,
+.theme-purple {
+  --primary-color: #7C3AED;
+  --primary-hover: #8B5CF6;
+  --primary-active: #6D28D9;
+  --primary-text: #7C3AED;
+  --primary-text-dark: #A78BFA;
+  --primary-light: rgba(124, 58, 237, 0.12);
+  --primary-light-border: rgba(124, 58, 237, 0.3);
+  --secondary-color: #6D28D9;
+  --accent-color: #A78BFA;
+  --chart-glow: rgba(124, 58, 237, 0.35);
+  --card-shadow: 0 8px 24px rgba(124, 58, 237, 0.08);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(167, 139, 250, 0.3) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #2e1065 50%, #581c87 100%);
+  --banner-border: rgba(167, 139, 250, 0.4);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(124, 58, 237, 0.25);
+  --banner-badge-bg: rgba(124, 58, 237, 0.25);
+  --banner-badge-text: #C4B5FD;
+  --banner-badge-border: rgba(167, 139, 250, 0.45);
+  --banner-highlight-text: #A78BFA;
+  --banner-progress-from: #7C3AED;
+  --banner-progress-to: #A78BFA;
+  --banner-progress-border: rgba(167, 139, 250, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(167, 139, 250, 0.32) 0%, transparent 60%), linear-gradient(135deg, #2e1065 0%, #0f172a 50%, #1e1138 100%);
+  --revisoes-banner-border: rgba(167, 139, 250, 0.35);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(124, 58, 237, 0.18);
+  --revisoes-pill-bg: rgba(124, 58, 237, 0.2);
+  --revisoes-pill-border: rgba(167, 139, 250, 0.35);
+  --revisoes-pill-text: #E9D5FF;
+  --revisoes-pill-icon: #C4B5FD;
+  --badge-pill-bg: rgba(124, 58, 237, 0.18);
+  --badge-pill-text: #C4B5FD;
+  --badge-pill-border: rgba(167, 139, 250, 0.35);
+}
+
+[data-skin="laranja"],
+[data-skin="orange"],
+[data-skin="dbz"],
+.skin-laranja,
+.skin-orange,
+.skin-dbz,
+body.theme-orange,
+body.theme-laranja,
+body.theme-dbz,
+.theme-orange,
+.theme-laranja,
+.theme-dbz {
+  --primary-color: #FF6B00;
+  --primary-hover: #FF8533;
+  --primary-active: #D83100;
+  --primary-text: #FF6B00;
+  --primary-text-dark: #FFCC00;
+  --primary-light: rgba(255, 107, 0, 0.15);
+  --primary-light-border: rgba(255, 107, 0, 0.35);
+  --secondary-color: #D83100;
+  --accent-color: #FFCC00;
+  --chart-glow: rgba(255, 107, 0, 0.35);
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(255, 153, 0, 0.32) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #431407 45%, #7c2d12 75%, #c2410c 100%);
+  --banner-border: rgba(255, 107, 0, 0.45);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 107, 0, 0.25);
+  --banner-badge-bg: rgba(255, 107, 0, 0.25);
+  --banner-badge-text: #FFCC00;
+  --banner-badge-border: rgba(255, 204, 0, 0.55);
+  --banner-highlight-text: #FF8533;
+  --banner-progress-from: #FF6B00;
+  --banner-progress-to: #FFCC00;
+  --banner-progress-border: rgba(255, 204, 0, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(255, 153, 0, 0.3) 0%, transparent 60%), linear-gradient(135deg, #431407 0%, #0f172a 50%, #1a0803 100%);
+  --revisoes-banner-border: rgba(255, 107, 0, 0.35);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 107, 0, 0.18);
+  --revisoes-pill-bg: rgba(255, 107, 0, 0.2);
+  --revisoes-pill-border: rgba(255, 204, 0, 0.35);
+  --revisoes-pill-text: #FFCC00;
+  --revisoes-pill-icon: #FFCC00;
+  --badge-pill-bg: rgba(255, 107, 0, 0.18);
+  --badge-pill-text: #FFCC00;
+  --badge-pill-border: rgba(255, 204, 0, 0.4);
+}
+
+/* ==========================================================================
+   CLASSES UTILITÁRIAS DINÂMICAS DO TEMA
+   ========================================================================== */
+
+.theme-btn-primary {
+  background-color: var(--primary-color) !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease-in-out;
+}
+.theme-btn-primary:hover {
+  background-color: var(--primary-hover) !important;
+}
+.theme-btn-primary:active {
+  background-color: var(--primary-active) !important;
+}
+
+.bg-brand {
+  background-color: var(--primary-color) !important;
+}
+
+.text-brand {
+  color: var(--primary-color) !important;
+}
+.dark .text-brand {
+  color: var(--primary-text-dark) !important;
+}
+
+.border-brand {
+  border-color: var(--primary-color) !important;
+}
+
+.ring-brand {
+  --tw-ring-color: var(--primary-color) !important;
+}
+
+.theme-primary-bg {
+  background-color: var(--primary-color) !important;
+}
+
+.theme-primary-text {
+  color: var(--primary-text) !important;
+}
+.dark .theme-primary-text {
+  color: var(--primary-text-dark) !important;
+}
+
+.theme-primary-border {
+  border-color: var(--primary-hover) !important;
+}
+
+.theme-primary-badge {
+  background-color: var(--primary-light, rgba(16, 185, 129, 0.15)) !important;
+  color: var(--primary-text, #059669) !important;
+  border-color: var(--primary-light-border, rgba(16, 185, 129, 0.3)) !important;
+}
+.dark .theme-primary-badge,
+.dark-mode .theme-primary-badge {
+  color: var(--primary-text-dark, #34d399) !important;
+}
+
+/* Badges e Pílulas na Sidebar */
+.sidebar-badge {
+  background-color: var(--badge-pill-bg, rgba(16, 185, 129, 0.15)) !important;
+  color: var(--badge-pill-text, #34d399) !important;
+  border: 1px solid var(--badge-pill-border, rgba(16, 185, 129, 0.3)) !important;
+}
+
+.sidebar-foco-box {
+  background-color: var(--primary-light, rgba(16, 185, 129, 0.12)) !important;
+  border-color: var(--primary-light-border, rgba(16, 185, 129, 0.3)) !important;
+}
+
+.sidebar-foco-title {
+  color: var(--primary-text-dark, #34d399) !important;
+}
+
+.sidebar-foco-icon {
+  color: var(--primary-hover, #10b981) !important;
+}
+
+.sidebar-nivel-badge {
+  background-color: var(--badge-pill-bg, rgba(16, 185, 129, 0.2)) !important;
+  color: var(--badge-pill-text, #34d399) !important;
+  border: 1px solid var(--badge-pill-border, rgba(16, 185, 129, 0.3)) !important;
+}
+
+/* Tag Concurso Ativo no Banner */
+.badge-ativo {
+  background-color: var(--banner-badge-bg, rgba(16, 185, 129, 0.2)) !important;
+  color: var(--banner-badge-text, #6ee7b7) !important;
+  border: 1px solid var(--banner-badge-border, rgba(16, 185, 129, 0.35)) !important;
+}
+
+/* Botão Secundário de Alto Contraste no Banner Principal ("Mudar Concurso") */
+.btn-banner-secundario,
+.banner-principal .btn-banner-secundario,
+.card-banner .btn-banner-secundario {
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background-color: transparent !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-banner-secundario:hover,
+.banner-principal .btn-banner-secundario:hover,
+.card-banner .btn-banner-secundario:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.btn-banner-secundario *,
+.banner-principal .btn-banner-secundario *,
+.card-banner .btn-banner-secundario * {
+  color: #ffffff !important;
+}
+
+/* Tag Próximo Estudo Recomendado */
+.proximo-estudo-card {
+  border-color: var(--primary-light-border, rgba(16, 185, 129, 0.35)) !important;
+  background: linear-gradient(to right, var(--primary-light, rgba(16, 185, 129, 0.12)), transparent) !important;
+}
+.proximo-estudo-tag {
+  background-color: var(--badge-pill-bg, rgba(16, 185, 129, 0.2)) !important;
+  color: var(--badge-pill-text, #34d399) !important;
+  border: 1px solid var(--badge-pill-border, rgba(16, 185, 129, 0.3)) !important;
+}
+
+/* Card Horas Estudadas */
+.card-metric-hours {
+  border-left-color: var(--primary-hover, #10b981) !important;
+}
+.card-metric-hours-text {
+  color: var(--primary-text-dark, #34d399) !important;
+}
+.card-metric-hours-icon-bg {
+  background-color: var(--primary-light, rgba(16, 185, 129, 0.12)) !important;
+  color: var(--primary-hover, #10b981) !important;
+}
+
+/* Tag Total de Horas no Gráfico */
+.theme-total-badge {
+  background-color: var(--badge-pill-bg, rgba(16, 185, 129, 0.18)) !important;
+  color: var(--badge-pill-text, #34d399) !important;
+  border: 1px solid var(--badge-pill-border, rgba(16, 185, 129, 0.3)) !important;
+}
+
+/* Botão Alternar Tema Sol/Lua no Cabeçalho */
+.theme-mode-active {
+  box-shadow: 0 0 0 1.5px var(--primary-hover, #10b981) !important;
+  border-color: var(--primary-hover, #10b981) !important;
+}
+.theme-moon-icon {
+  color: var(--primary-text-dark, #34d399) !important;
+}
+
+/* ==========================================================================
+   OVERLAYS E REGRAS GLOBAIS DE COR PARA TEMAS AZUL E ROSA
+   Mantém compatibilidade imediata com toda a hierarquia de componentes
+   ========================================================================== */
+
+/* --- TEMA AZUL (FOCO & ALTA CONCENTRAÇÃO) --- */
+[data-skin="azul"] .bg-emerald-600,
+[data-skin="azul"] .bg-emerald-500,
+[data-skin="azul"] .dark\:bg-emerald-600,
+[data-skin="azul"] .dark\:bg-emerald-500,
+[data-skin="azul"] button.bg-emerald-600,
+[data-skin="azul"] button.bg-emerald-500,
+[data-skin="azul"] a.bg-emerald-600,
+[data-skin="azul"] a.bg-emerald-500 {
+  background-color: #2563eb !important;
+}
+
+[data-skin="azul"] .accent-emerald-500,
+[data-skin="azul"] .accent-emerald-600 {
+  accent-color: #2563eb !important;
+}
+
+[data-skin="azul"] .hover\:bg-emerald-500:hover,
+[data-skin="azul"] .hover\:bg-emerald-700:hover,
+[data-skin="azul"] .dark\:hover\:bg-emerald-500:hover {
+  background-color: #3b82f6 !important;
+}
+
+[data-skin="azul"] .text-emerald-600,
+[data-skin="azul"] .text-emerald-500,
+[data-skin="azul"] .text-emerald-700 {
+  color: #2563eb !important;
+}
+
+[data-skin="azul"] .dark .dark\:text-emerald-400,
+[data-skin="azul"] .dark .dark\:text-emerald-300,
+[data-skin="azul"] .dark\:text-emerald-400,
+[data-skin="azul"] .dark\:text-emerald-300,
+[data-skin="azul"] .text-emerald-400 {
+  color: #60a5fa !important;
+}
+
+[data-skin="azul"] .border-emerald-500,
+[data-skin="azul"] .border-emerald-400 {
+  border-color: #3b82f6 !important;
+}
+
+[data-skin="azul"] .border-emerald-200,
+[data-skin="azul"] .border-emerald-300,
+[data-skin="azul"] .dark\:border-emerald-800\/50,
+[data-skin="azul"] .dark\:border-emerald-800\/60,
+[data-skin="azul"] .border-emerald-500\/20,
+[data-skin="azul"] .border-emerald-500\/30 {
+  border-color: rgba(37, 99, 235, 0.3) !important;
+}
+
+[data-skin="azul"] .bg-emerald-50,
+[data-skin="azul"] .bg-emerald-100,
+[data-skin="azul"] .bg-emerald-500\/10,
+[data-skin="azul"] .bg-emerald-500\/15 {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+}
+
+[data-skin="azul"] .dark\:bg-emerald-950\/30,
+[data-skin="azul"] .dark\:bg-emerald-950\/40,
+[data-skin="azul"] .dark\:bg-emerald-900\/60 {
+  background-color: rgba(37, 99, 235, 0.22) !important;
+}
+
+[data-skin="azul"] .focus\:ring-emerald-500:focus {
+  --tw-ring-color: #3b82f6 !important;
+}
+
+[data-skin="azul"] .from-emerald-600 {
+  --tw-gradient-from: #2563eb var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(37, 99, 235, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-skin="azul"] .to-teal-500,
+[data-skin="azul"] .to-teal-400 {
+  --tw-gradient-to: #06b6d4 var(--tw-gradient-to-position) !important;
+}
+
+[data-skin="azul"] .rounded-xl.border,
+[data-skin="azul"] .rounded-2xl.border {
+  box-shadow: 0 4px 16px -2px rgba(37, 99, 235, 0.07), 0 2px 5px -1px rgba(6, 182, 212, 0.04);
+}
+
+/* --- TEMA ROSA (SUAVE, LILÁS & MAGENTA CLARO) --- */
+[data-skin="rosa"] .bg-emerald-600,
+[data-skin="rosa"] .bg-emerald-500,
+[data-skin="rosa"] .dark\:bg-emerald-600,
+[data-skin="rosa"] .dark\:bg-emerald-500,
+[data-skin="rosa"] button.bg-emerald-600,
+[data-skin="rosa"] button.bg-emerald-500,
+[data-skin="rosa"] a.bg-emerald-600,
+[data-skin="rosa"] a.bg-emerald-500 {
+  background-color: #db2777 !important;
+}
+
+[data-skin="rosa"] .accent-emerald-500,
+[data-skin="rosa"] .accent-emerald-600 {
+  accent-color: #db2777 !important;
+}
+
+[data-skin="rosa"] .hover\:bg-emerald-500:hover,
+[data-skin="rosa"] .hover\:bg-emerald-700:hover,
+[data-skin="rosa"] .dark\:hover\:bg-emerald-500:hover {
+  background-color: #ec4899 !important;
+}
+
+[data-skin="rosa"] .text-emerald-600,
+[data-skin="rosa"] .text-emerald-500,
+[data-skin="rosa"] .text-emerald-700 {
+  color: #db2777 !important;
+}
+
+[data-skin="rosa"] .dark .dark\:text-emerald-400,
+[data-skin="rosa"] .dark .dark\:text-emerald-300,
+[data-skin="rosa"] .dark\:text-emerald-400,
+[data-skin="rosa"] .dark\:text-emerald-300,
+[data-skin="rosa"] .text-emerald-400 {
+  color: #f472b6 !important;
+}
+
+[data-skin="rosa"] .border-emerald-500,
+[data-skin="rosa"] .border-emerald-400 {
+  border-color: #ec4899 !important;
+}
+
+[data-skin="rosa"] .border-emerald-200,
+[data-skin="rosa"] .border-emerald-300,
+[data-skin="rosa"] .dark\:border-emerald-800\/50,
+[data-skin="rosa"] .dark\:border-emerald-800\/60,
+[data-skin="rosa"] .border-emerald-500\/20,
+[data-skin="rosa"] .border-emerald-500\/30 {
+  border-color: rgba(219, 39, 119, 0.3) !important;
+}
+
+[data-skin="rosa"] .bg-emerald-50,
+[data-skin="rosa"] .bg-emerald-100,
+[data-skin="rosa"] .bg-emerald-500\/10,
+[data-skin="rosa"] .bg-emerald-500\/15 {
+  background-color: rgba(219, 39, 119, 0.12) !important;
+}
+
+[data-skin="rosa"] .dark\:bg-emerald-950\/30,
+[data-skin="rosa"] .dark\:bg-emerald-950\/40,
+[data-skin="rosa"] .dark\:bg-emerald-900\/60 {
+  background-color: rgba(219, 39, 119, 0.22) !important;
+}
+
+[data-skin="rosa"] .focus\:ring-emerald-500:focus {
+  --tw-ring-color: #ec4899 !important;
+}
+
+[data-skin="rosa"] .from-emerald-600 {
+  --tw-gradient-from: #db2777 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(219, 39, 119, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-skin="rosa"] .to-teal-500,
+[data-skin="rosa"] .to-teal-400 {
+  --tw-gradient-to: #a855f7 var(--tw-gradient-to-position) !important;
+}
+
+[data-skin="rosa"] .rounded-xl.border,
+[data-skin="rosa"] .rounded-2xl.border {
+  box-shadow: 0 6px 24px -2px rgba(219, 39, 119, 0.09), 0 2px 8px -1px rgba(168, 85, 247, 0.05);
+}
+
+/* --- TEMA ROXO (VIOLETA & PÚRPURA ELEGANTE) --- */
+[data-skin="roxo"] .bg-emerald-600,
+[data-skin="roxo"] .bg-emerald-500,
+[data-skin="roxo"] .dark\:bg-emerald-600,
+[data-skin="roxo"] .dark\:bg-emerald-500,
+[data-skin="roxo"] button.bg-emerald-600,
+[data-skin="roxo"] a.bg-emerald-600,
+[data-skin="purple"] .bg-emerald-600,
+[data-skin="purple"] .bg-emerald-500,
+.skin-roxo .bg-emerald-600,
+.skin-roxo .bg-emerald-500,
+body.theme-purple .bg-emerald-600,
+body.theme-purple .bg-emerald-500,
+.theme-purple .bg-emerald-600,
+.theme-purple .bg-emerald-500 {
+  background-color: #7C3AED !important;
+}
+
+[data-skin="roxo"] .hover\:bg-emerald-500:hover,
+[data-skin="roxo"] .hover\:bg-emerald-600:hover,
+[data-skin="roxo"] .hover\:bg-emerald-700:hover,
+[data-skin="roxo"] .dark\:hover\:bg-emerald-500:hover,
+[data-skin="purple"] .hover\:bg-emerald-500:hover,
+.skin-roxo .hover\:bg-emerald-500:hover,
+body.theme-purple .hover\:bg-emerald-500:hover,
+.theme-purple .hover\:bg-emerald-500:hover {
+  background-color: #8B5CF6 !important;
+}
+
+[data-skin="roxo"] .text-emerald-600,
+[data-skin="roxo"] .text-emerald-500,
+[data-skin="roxo"] .text-emerald-700,
+[data-skin="purple"] .text-emerald-600,
+[data-skin="purple"] .text-emerald-500,
+.skin-roxo .text-emerald-600,
+.skin-roxo .text-emerald-500,
+body.theme-purple .text-emerald-600,
+body.theme-purple .text-emerald-500,
+.theme-purple .text-emerald-600,
+.theme-purple .text-emerald-500 {
+  color: #7C3AED !important;
+}
+
+[data-skin="roxo"] .dark .dark\:text-emerald-400,
+[data-skin="roxo"] .dark .dark\:text-emerald-300,
+[data-skin="roxo"] .dark\:text-emerald-400,
+[data-skin="roxo"] .dark\:text-emerald-300,
+[data-skin="roxo"] .text-emerald-400,
+[data-skin="purple"] .dark\:text-emerald-400,
+[data-skin="purple"] .text-emerald-400,
+.skin-roxo .dark\:text-emerald-400,
+.skin-roxo .text-emerald-400,
+body.theme-purple .dark\:text-emerald-400,
+body.theme-purple .text-emerald-400,
+.theme-purple .dark\:text-emerald-400,
+.theme-purple .text-emerald-400 {
+  color: #A78BFA !important;
+}
+
+[data-skin="roxo"] .border-emerald-500,
+[data-skin="roxo"] .border-emerald-400,
+[data-skin="purple"] .border-emerald-500,
+.skin-roxo .border-emerald-500,
+body.theme-purple .border-emerald-500,
+.theme-purple .border-emerald-500 {
+  border-color: #8B5CF6 !important;
+}
+
+[data-skin="roxo"] .border-emerald-200,
+[data-skin="roxo"] .border-emerald-300,
+[data-skin="roxo"] .dark\:border-emerald-800\/50,
+[data-skin="roxo"] .dark\:border-emerald-800\/60,
+[data-skin="roxo"] .border-emerald-500\/20,
+[data-skin="roxo"] .border-emerald-500\/25,
+[data-skin="roxo"] .border-emerald-500\/30,
+[data-skin="roxo"] .border-emerald-500\/40,
+[data-skin="purple"] .border-emerald-500\/30,
+.skin-roxo .border-emerald-500\/30,
+body.theme-purple .border-emerald-500\/30,
+.theme-purple .border-emerald-500\/30 {
+  border-color: rgba(124, 58, 237, 0.3) !important;
+}
+
+[data-skin="roxo"] .bg-emerald-50,
+[data-skin="roxo"] .bg-emerald-100,
+[data-skin="roxo"] .bg-emerald-500\/10,
+[data-skin="roxo"] .bg-emerald-500\/15,
+[data-skin="roxo"] .bg-emerald-500\/20,
+[data-skin="purple"] .bg-emerald-500\/15,
+.skin-roxo .bg-emerald-500\/15,
+body.theme-purple .bg-emerald-500\/15,
+.theme-purple .bg-emerald-500\/15 {
+  background-color: rgba(124, 58, 237, 0.12) !important;
+}
+
+[data-skin="roxo"] .dark\:bg-emerald-950\/20,
+[data-skin="roxo"] .dark\:bg-emerald-950\/30,
+[data-skin="roxo"] .dark\:bg-emerald-950\/40,
+[data-skin="roxo"] .dark\:bg-emerald-900\/60,
+[data-skin="roxo"] .bg-emerald-950\/60,
+[data-skin="purple"] .dark\:bg-emerald-950\/30,
+.skin-roxo .dark\:bg-emerald-950\/30,
+body.theme-purple .dark\:bg-emerald-950\/30,
+.theme-purple .dark\:bg-emerald-950\/30 {
+  background-color: rgba(124, 58, 237, 0.22) !important;
+}
+
+[data-skin="roxo"] .focus\:ring-emerald-500:focus,
+[data-skin="roxo"] .ring-emerald-500,
+[data-skin="roxo"] .ring-emerald-500\/20,
+[data-skin="roxo"] .ring-emerald-500\/30,
+[data-skin="roxo"] .ring-emerald-500\/40 {
+  --tw-ring-color: #8B5CF6 !important;
+}
+
+[data-skin="roxo"] .from-emerald-600,
+[data-skin="roxo"] .from-emerald-500 {
+  --tw-gradient-from: #7C3AED var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(124, 58, 237, 0) var(--tw-gradient-from-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-skin="roxo"] .to-teal-500,
+[data-skin="roxo"] .to-teal-400,
+[data-skin="roxo"] .to-emerald-400 {
+  --tw-gradient-to: #A78BFA var(--tw-gradient-to-position) !important;
+}
+
+[data-skin="roxo"] .rounded-xl.border,
+[data-skin="roxo"] .rounded-2xl.border {
+  box-shadow: 0 4px 16px -2px rgba(124, 58, 237, 0.07), 0 2px 5px -1px rgba(167, 139, 250, 0.04);
+}
+
+/* --- TEMA LARANJA (VIBRANTE & ENERGÉTICO) --- */
+[data-skin="laranja"] .bg-emerald-600,
+[data-skin="laranja"] .bg-emerald-500,
+[data-skin="laranja"] .dark\:bg-emerald-600,
+[data-skin="laranja"] .dark\:bg-emerald-500,
+[data-skin="laranja"] button.bg-emerald-600,
+[data-skin="laranja"] a.bg-emerald-600,
+[data-skin="orange"] .bg-emerald-600,
+[data-skin="orange"] .bg-emerald-500,
+[data-skin="dbz"] .bg-emerald-600,
+.skin-laranja .bg-emerald-600,
+.skin-laranja .bg-emerald-500,
+body.theme-orange .bg-emerald-600,
+body.theme-orange .bg-emerald-500,
+body.theme-laranja .bg-emerald-600,
+body.theme-laranja .bg-emerald-500,
+.theme-orange .bg-emerald-600,
+.theme-laranja .bg-emerald-600 {
+  background-color: #FF6B00 !important;
+}
+
+[data-skin="laranja"] .hover\:bg-emerald-500:hover,
+[data-skin="laranja"] .hover\:bg-emerald-600:hover,
+[data-skin="laranja"] .hover\:bg-emerald-700:hover,
+[data-skin="laranja"] .dark\:hover\:bg-emerald-500:hover,
+[data-skin="orange"] .hover\:bg-emerald-500:hover,
+.skin-laranja .hover\:bg-emerald-500:hover,
+body.theme-orange .hover\:bg-emerald-500:hover,
+body.theme-laranja .hover\:bg-emerald-500:hover,
+.theme-orange .hover\:bg-emerald-500:hover,
+.theme-laranja .hover\:bg-emerald-500:hover {
+  background-color: #FF8533 !important;
+}
+
+[data-skin="laranja"] .text-emerald-600,
+[data-skin="laranja"] .text-emerald-500,
+[data-skin="laranja"] .text-emerald-700,
+[data-skin="orange"] .text-emerald-600,
+[data-skin="orange"] .text-emerald-500,
+.skin-laranja .text-emerald-600,
+.skin-laranja .text-emerald-500,
+body.theme-orange .text-emerald-600,
+body.theme-orange .text-emerald-500,
+body.theme-laranja .text-emerald-600,
+body.theme-laranja .text-emerald-500,
+.theme-orange .text-emerald-600,
+.theme-laranja .text-emerald-600 {
+  color: #FF6B00 !important;
+}
+
+[data-skin="laranja"] .dark .dark\:text-emerald-400,
+[data-skin="laranja"] .dark .dark\:text-emerald-300,
+[data-skin="laranja"] .dark\:text-emerald-400,
+[data-skin="laranja"] .dark\:text-emerald-300,
+[data-skin="laranja"] .text-emerald-400,
+[data-skin="orange"] .dark\:text-emerald-400,
+[data-skin="orange"] .text-emerald-400,
+.skin-laranja .dark\:text-emerald-400,
+.skin-laranja .text-emerald-400,
+body.theme-orange .dark\:text-emerald-400,
+body.theme-orange .text-emerald-400,
+body.theme-laranja .dark\:text-emerald-400,
+body.theme-laranja .text-emerald-400,
+.theme-orange .dark\:text-emerald-400,
+.theme-laranja .dark\:text-emerald-400 {
+  color: #FFCC00 !important;
+}
+
+[data-skin="laranja"] .border-emerald-500,
+[data-skin="laranja"] .border-emerald-400,
+[data-skin="orange"] .border-emerald-500,
+.skin-laranja .border-emerald-500,
+body.theme-orange .border-emerald-500,
+body.theme-laranja .border-emerald-500,
+.theme-orange .border-emerald-500,
+.theme-laranja .border-emerald-500 {
+  border-color: #FF8533 !important;
+}
+
+[data-skin="laranja"] .border-emerald-200,
+[data-skin="laranja"] .border-emerald-300,
+[data-skin="laranja"] .dark\:border-emerald-800\/50,
+[data-skin="laranja"] .dark\:border-emerald-800\/60,
+[data-skin="laranja"] .border-emerald-500\/20,
+[data-skin="laranja"] .border-emerald-500\/25,
+[data-skin="laranja"] .border-emerald-500\/30,
+[data-skin="laranja"] .border-emerald-500\/40,
+[data-skin="orange"] .border-emerald-500\/30,
+.skin-laranja .border-emerald-500\/30,
+body.theme-orange .border-emerald-500\/30,
+body.theme-laranja .border-emerald-500\/30,
+.theme-orange .border-emerald-500\/30,
+.theme-laranja .border-emerald-500\/30 {
+  border-color: rgba(255, 107, 0, 0.3) !important;
+}
+
+[data-skin="laranja"] .bg-emerald-50,
+[data-skin="laranja"] .bg-emerald-100,
+[data-skin="laranja"] .bg-emerald-500\/10,
+[data-skin="laranja"] .bg-emerald-500\/15,
+[data-skin="laranja"] .bg-emerald-500\/20,
+[data-skin="orange"] .bg-emerald-500\/15,
+.skin-laranja .bg-emerald-500\/15,
+body.theme-orange .bg-emerald-500\/15,
+body.theme-laranja .bg-emerald-500\/15,
+.theme-orange .bg-emerald-500\/15,
+.theme-laranja .bg-emerald-500\/15 {
+  background-color: rgba(255, 107, 0, 0.12) !important;
+}
+
+[data-skin="laranja"] .dark\:bg-emerald-950\/20,
+[data-skin="laranja"] .dark\:bg-emerald-950\/30,
+[data-skin="laranja"] .dark\:bg-emerald-950\/40,
+[data-skin="laranja"] .dark\:bg-emerald-900\/60,
+[data-skin="laranja"] .bg-emerald-950\/60,
+[data-skin="orange"] .dark\:bg-emerald-950\/30,
+.skin-laranja .dark\:bg-emerald-950\/30,
+body.theme-orange .dark\:bg-emerald-950\/30,
+body.theme-laranja .dark\:bg-emerald-950\/30,
+.theme-orange .dark\:bg-emerald-950\/30,
+.theme-laranja .dark\:bg-emerald-950\/30 {
+  background-color: rgba(255, 107, 0, 0.22) !important;
+}
+
+[data-skin="laranja"] .focus\:ring-emerald-500:focus,
+[data-skin="laranja"] .ring-emerald-500,
+[data-skin="laranja"] .ring-emerald-500\/20,
+[data-skin="laranja"] .ring-emerald-500\/30,
+[data-skin="laranja"] .ring-emerald-500\/40 {
+  --tw-ring-color: #FF8533 !important;
+}
+
+[data-skin="laranja"] .from-emerald-600,
+[data-skin="laranja"] .from-emerald-500 {
+  --tw-gradient-from: #FF6B00 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(255, 107, 0, 0) var(--tw-gradient-from-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-skin="laranja"] .to-teal-500,
+[data-skin="laranja"] .to-teal-400,
+[data-skin="laranja"] .to-emerald-400 {
+  --tw-gradient-to: #FFCC00 var(--tw-gradient-to-position) !important;
+}
+
+[data-skin="laranja"] .rounded-xl.border,
+[data-skin="laranja"] .rounded-2xl.border {
+  box-shadow: 0 4px 16px -2px rgba(255, 107, 0, 0.07), 0 2px 5px -1px rgba(255, 204, 0, 0.04);
+}
+
+/* ==========================================================================
+   BANNER PRINCIPAL DINÂMICO - TEMAS VERDE, AZUL E ROSA SUAVE
+   Garante que o fundo (gradient/glow), pílula "Concurso Ativo",
+   textos de destaque (cargo/progresso) e barra de progresso respeitem o tema selecionado.
+   ========================================================================== */
+
+/* 1. Integração Direta com Variáveis CSS do Tema (.banner-principal / .card-banner) */
+.banner-principal,
+.card-banner {
+  background: var(--banner-bg, radial-gradient(ellipse at 85% 25%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #022c22 100%)) !important;
+  border-color: var(--banner-border, rgba(16, 185, 129, 0.35)) !important;
+  box-shadow: var(--banner-glow, 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18)) !important;
+}
+
+.banner-principal .badge-ativo,
+.card-banner .badge-ativo {
+  background-color: var(--banner-badge-bg, rgba(16, 185, 129, 0.2)) !important;
+  color: var(--banner-badge-text, #6ee7b7) !important;
+  border-color: var(--banner-badge-border, rgba(16, 185, 129, 0.35)) !important;
+}
+
+.banner-principal .cargo-destaque,
+.card-banner .cargo-destaque,
+.banner-principal .cargo-destaque.text-brand,
+.card-banner .cargo-destaque.text-brand,
+.cargo-destaque {
+  color: var(--banner-highlight-text, var(--primary-text-dark, var(--primary-color))) !important;
+}
+
+.banner-principal .progresso-icone,
+.card-banner .progresso-icone,
+.banner-principal .progresso-texto,
+.card-banner .progresso-texto {
+  color: var(--banner-highlight-text, #6ee7b7) !important;
+}
+
+.banner-principal .progresso-trilho,
+.card-banner .progresso-trilho {
+  border-color: var(--banner-progress-border, rgba(16, 185, 129, 0.25)) !important;
+}
+
+.banner-principal .barra-progresso,
+.banner-principal .progresso-barra,
+.card-banner .barra-progresso,
+.card-banner .progresso-barra {
+  background: linear-gradient(to right, var(--banner-progress-from, #10b981), var(--banner-progress-to, #2dd4bf)) !important;
+}
+
+/* 2. Overrides Específicos de Alta Especificidade para Tema AZUL */
+body.theme-blue .banner-principal,
+body.skin-azul .banner-principal,
+[data-skin="azul"] .banner-principal,
+body.theme-blue .card-banner,
+body.skin-azul .card-banner,
+[data-skin="azul"] .card-banner {
+  background: radial-gradient(ellipse at 85% 25%, rgba(37, 99, 235, 0.45) 0%, transparent 65%), linear-gradient(135deg, #0b1329 0%, #172554 50%, #0f172a 100%) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(37, 99, 235, 0.3) !important;
+}
+
+body.theme-blue .banner-principal .badge-ativo,
+body.skin-azul .banner-principal .badge-ativo,
+[data-skin="azul"] .banner-principal .badge-ativo,
+body.theme-blue .card-banner .badge-ativo,
+body.skin-azul .card-banner .badge-ativo,
+[data-skin="azul"] .card-banner .badge-ativo {
+  background-color: rgba(37, 99, 235, 0.25) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+body.theme-blue .banner-principal .cargo-destaque,
+body.skin-azul .banner-principal .cargo-destaque,
+[data-skin="azul"] .banner-principal .cargo-destaque,
+body.theme-blue .card-banner .cargo-destaque,
+body.skin-azul .card-banner .cargo-destaque,
+[data-skin="azul"] .card-banner .cargo-destaque,
+body.theme-blue .banner-principal .progresso-icone,
+body.skin-azul .banner-principal .progresso-icone,
+[data-skin="azul"] .banner-principal .progresso-icone,
+body.theme-blue .card-banner .progresso-icone,
+body.skin-azul .card-banner .progresso-icone,
+[data-skin="azul"] .card-banner .progresso-icone,
+body.theme-blue .banner-principal .progresso-texto,
+body.skin-azul .banner-principal .progresso-texto,
+[data-skin="azul"] .banner-principal .progresso-texto,
+body.theme-blue .card-banner .progresso-texto,
+body.skin-azul .card-banner .progresso-texto,
+[data-skin="azul"] .card-banner .progresso-texto {
+  color: #60a5fa !important;
+}
+
+body.theme-blue .banner-principal .progresso-trilho,
+body.skin-azul .banner-principal .progresso-trilho,
+[data-skin="azul"] .banner-principal .progresso-trilho,
+body.theme-blue .card-banner .progresso-trilho,
+body.skin-azul .card-banner .progresso-trilho,
+[data-skin="azul"] .card-banner .progresso-trilho {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+body.theme-blue .banner-principal .barra-progresso,
+body.theme-blue .banner-principal .progresso-barra,
+body.skin-azul .banner-principal .barra-progresso,
+body.skin-azul .banner-principal .progresso-barra,
+[data-skin="azul"] .banner-principal .barra-progresso,
+[data-skin="azul"] .banner-principal .progresso-barra,
+body.theme-blue .card-banner .barra-progresso,
+body.theme-blue .card-banner .progresso-barra,
+body.skin-azul .card-banner .barra-progresso,
+body.skin-azul .card-banner .progresso-barra,
+[data-skin="azul"] .card-banner .barra-progresso,
+[data-skin="azul"] .card-banner .progresso-barra {
+  background: linear-gradient(to right, #2563eb, #38bdf8) !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5) !important;
+}
+
+body.theme-blue .banner-principal .dias-restantes-card,
+body.skin-azul .banner-principal .dias-restantes-card,
+[data-skin="azul"] .banner-principal .dias-restantes-card,
+body.theme-blue .card-banner .dias-restantes-card,
+body.skin-azul .card-banner .dias-restantes-card,
+[data-skin="azul"] .card-banner .dias-restantes-card {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+body.theme-blue .banner-principal .dias-restantes-card span:first-child,
+body.skin-azul .banner-principal .dias-restantes-card span:first-child,
+[data-skin="azul"] .banner-principal .dias-restantes-card span:first-child,
+body.theme-blue .card-banner .dias-restantes-card span:first-child,
+body.skin-azul .card-banner .dias-restantes-card span:first-child,
+[data-skin="azul"] .card-banner .dias-restantes-card span:first-child {
+  color: #93c5fd !important;
+}
+
+/* 3. Overrides Específicos de Alta Especificidade para Tema ROSA SUAVE */
+body.theme-pink .banner-principal,
+body.skin-rosa .banner-principal,
+[data-skin="rosa"] .banner-principal,
+body.theme-pink .card-banner,
+body.skin-rosa .card-banner,
+[data-skin="rosa"] .card-banner {
+  background: radial-gradient(ellipse at 85% 25%, rgba(219, 39, 119, 0.4) 0%, transparent 65%), linear-gradient(135deg, #180914 0%, #831843 50%, #0f172a 100%) !important;
+  border-color: rgba(244, 114, 182, 0.4) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(219, 39, 119, 0.25) !important;
+}
+
+body.theme-pink .banner-principal .badge-ativo,
+body.skin-rosa .banner-principal .badge-ativo,
+[data-skin="rosa"] .banner-principal .badge-ativo,
+body.theme-pink .card-banner .badge-ativo,
+body.skin-rosa .card-banner .badge-ativo,
+[data-skin="rosa"] .card-banner .badge-ativo {
+  background-color: rgba(219, 39, 119, 0.25) !important;
+  color: #fbcfe8 !important;
+  border-color: rgba(244, 114, 182, 0.45) !important;
+}
+
+body.theme-pink .banner-principal .cargo-destaque,
+body.skin-rosa .banner-principal .cargo-destaque,
+[data-skin="rosa"] .banner-principal .cargo-destaque,
+body.theme-pink .card-banner .cargo-destaque,
+body.skin-rosa .card-banner .cargo-destaque,
+[data-skin="rosa"] .card-banner .cargo-destaque,
+body.theme-pink .banner-principal .progresso-icone,
+body.skin-rosa .banner-principal .progresso-icone,
+[data-skin="rosa"] .banner-principal .progresso-icone,
+body.theme-pink .card-banner .progresso-icone,
+body.skin-rosa .card-banner .progresso-icone,
+[data-skin="rosa"] .card-banner .progresso-icone,
+body.theme-pink .banner-principal .progresso-texto,
+body.skin-rosa .banner-principal .progresso-texto,
+[data-skin="rosa"] .banner-principal .progresso-texto,
+body.theme-pink .card-banner .progresso-texto,
+body.skin-rosa .card-banner .progresso-texto,
+[data-skin="rosa"] .card-banner .progresso-texto {
+  color: #f472b6 !important;
+}
+
+body.theme-pink .banner-principal .progresso-trilho,
+body.skin-rosa .banner-principal .progresso-trilho,
+[data-skin="rosa"] .banner-principal .progresso-trilho,
+body.theme-pink .card-banner .progresso-trilho,
+body.skin-rosa .card-banner .progresso-trilho,
+[data-skin="rosa"] .card-banner .progresso-trilho {
+  border-color: rgba(244, 114, 182, 0.3) !important;
+}
+
+body.theme-pink .banner-principal .barra-progresso,
+body.theme-pink .banner-principal .progresso-barra,
+body.skin-rosa .banner-principal .barra-progresso,
+body.skin-rosa .banner-principal .progresso-barra,
+[data-skin="rosa"] .banner-principal .barra-progresso,
+[data-skin="rosa"] .banner-principal .progresso-barra,
+body.theme-pink .card-banner .barra-progresso,
+body.theme-pink .card-banner .progresso-barra,
+body.skin-rosa .card-banner .barra-progresso,
+body.skin-rosa .card-banner .progresso-barra,
+[data-skin="rosa"] .card-banner .barra-progresso,
+[data-skin="rosa"] .card-banner .progresso-barra {
+  background: linear-gradient(to right, #db2777, #f472b6) !important;
+  box-shadow: 0 0 12px rgba(244, 114, 182, 0.5) !important;
+}
+
+body.theme-pink .banner-principal .dias-restantes-card,
+body.skin-rosa .banner-principal .dias-restantes-card,
+[data-skin="rosa"] .banner-principal .dias-restantes-card,
+body.theme-pink .card-banner .dias-restantes-card,
+body.skin-rosa .card-banner .dias-restantes-card,
+[data-skin="rosa"] .card-banner .dias-restantes-card {
+  border-color: rgba(244, 114, 182, 0.45) !important;
+}
+
+body.theme-pink .banner-principal .dias-restantes-card span:first-child,
+body.skin-rosa .banner-principal .dias-restantes-card span:first-child,
+[data-skin="rosa"] .banner-principal .dias-restantes-card span:first-child,
+body.theme-pink .card-banner .dias-restantes-card span:first-child,
+body.skin-rosa .card-banner .dias-restantes-card span:first-child,
+[data-skin="rosa"] .card-banner .dias-restantes-card span:first-child {
+  color: #f472b6 !important;
+}
+
+/* 4. Overrides Específicos para Tema VERDE (Padrão) */
+body.theme-green .banner-principal,
+body.skin-verde .banner-principal,
+[data-skin="verde"] .banner-principal,
+body.theme-green .card-banner,
+body.skin-verde .card-banner,
+[data-skin="verde"] .card-banner {
+  background: radial-gradient(ellipse at 85% 25%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #022c22 100%) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18) !important;
+}
+
+body.theme-green .banner-principal .badge-ativo,
+body.skin-verde .banner-principal .badge-ativo,
+[data-skin="verde"] .banner-principal .badge-ativo,
+body.theme-green .card-banner .badge-ativo,
+body.skin-verde .card-banner .badge-ativo,
+[data-skin="verde"] .card-banner .badge-ativo {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+body.theme-green .banner-principal .cargo-destaque,
+body.skin-verde .banner-principal .cargo-destaque,
+[data-skin="verde"] .banner-principal .cargo-destaque,
+body.theme-green .card-banner .cargo-destaque,
+body.skin-verde .card-banner .cargo-destaque,
+[data-skin="verde"] .card-banner .cargo-destaque,
+body.theme-green .banner-principal .progresso-icone,
+body.skin-verde .banner-principal .progresso-icone,
+[data-skin="verde"] .banner-principal .progresso-icone,
+body.theme-green .card-banner .progresso-icone,
+body.skin-verde .card-banner .progresso-icone,
+[data-skin="verde"] .card-banner .progresso-icone,
+body.theme-green .banner-principal .progresso-texto,
+body.skin-verde .banner-principal .progresso-texto,
+[data-skin="verde"] .banner-principal .progresso-texto,
+body.theme-green .card-banner .progresso-texto,
+body.skin-verde .card-banner .progresso-texto,
+[data-skin="verde"] .card-banner .progresso-texto {
+  color: #6ee7b7 !important;
+}
+
+body.theme-green .banner-principal .progresso-trilho,
+body.skin-verde .banner-principal .progresso-trilho,
+[data-skin="verde"] .banner-principal .progresso-trilho,
+body.theme-green .card-banner .progresso-trilho,
+body.skin-verde .card-banner .progresso-trilho,
+[data-skin="verde"] .card-banner .progresso-trilho {
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+body.theme-green .banner-principal .barra-progresso,
+body.theme-green .banner-principal .progresso-barra,
+body.skin-verde .banner-principal .barra-progresso,
+body.skin-verde .banner-principal .progresso-barra,
+[data-skin="verde"] .banner-principal .barra-progresso,
+[data-skin="verde"] .banner-principal .progresso-barra,
+body.theme-green .card-banner .barra-progresso,
+body.theme-green .card-banner .progresso-barra,
+body.skin-verde .card-banner .barra-progresso,
+body.skin-verde .card-banner .progresso-barra,
+[data-skin="verde"] .card-banner .barra-progresso,
+[data-skin="verde"] .card-banner .progresso-barra {
+  background: linear-gradient(to right, #10b981, #2dd4bf) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* ==========================================================================
+   BANNER DE REVISÕES ESPAÇADAS DINÂMICO - .revisoes-banner
+   Garante que o fundo escuro com glow/gradient e a pílula/tag
+   "Repetição Espaçada (SRS)" respeitem as cores do tema ativo.
+   ========================================================================== */
+
+/* 1. Estrutura Base com Variáveis CSS (Opção A) */
+.revisoes-banner {
+  background: var(--revisoes-banner-bg, radial-gradient(ellipse at 15% 25%, rgba(16, 185, 129, 0.32) 0%, transparent 60%), linear-gradient(135deg, #064e3b 0%, #0f172a 50%, #022c22 100%)) !important;
+  border-color: var(--revisoes-banner-border, rgba(16, 185, 129, 0.35)) !important;
+  box-shadow: var(--revisoes-banner-glow, 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18)) !important;
+}
+
+.revisoes-banner .revisoes-pill,
+.revisoes-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.25rem 0.625rem !important;
+  border-radius: 9999px !important;
+  background-color: var(--revisoes-pill-bg, rgba(16, 185, 129, 0.2)) !important;
+  border: 1px solid var(--revisoes-pill-border, rgba(16, 185, 129, 0.35)) !important;
+  width: fit-content !important;
+}
+
+.revisoes-banner .revisoes-pill-icon,
+.revisoes-banner .revisoes-pill svg,
+.revisoes-pill svg {
+  color: var(--revisoes-pill-icon, #34d399) !important;
+}
+
+.revisoes-banner .revisoes-pill-text,
+.revisoes-banner .revisoes-pill span,
+.revisoes-pill span {
+  color: var(--revisoes-pill-text, #6ee7b7) !important;
+}
+
+/* Cards internos de métricas do Banner de Revisões (Fundo escuro mantido em todos os temas e modos) */
+.revisoes-banner .bg-slate-900\/80,
+.revisoes-banner .rounded-2xl {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(51, 65, 85, 0.6) !important;
+  box-shadow: none !important;
+}
+
+.revisoes-banner .border-rose-900\/50 {
+  border-color: rgba(136, 19, 55, 0.5) !important;
+}
+
+/* Botão Configurar no Banner de Revisões (outline transparente com texto branco) */
+.revisoes-banner button.bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.revisoes-banner button.bg-white\/10:hover {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+
+/* 2. Overrides Específicos para Tema AZUL (.theme-blue / .skin-azul / [data-skin="azul"]) */
+body.theme-blue .revisoes-banner,
+body.skin-azul .revisoes-banner,
+[data-skin="azul"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(37, 99, 235, 0.42) 0%, transparent 60%), linear-gradient(135deg, #172554 0%, #0f172a 50%, #0b1329 100%) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 30px rgba(37, 99, 235, 0.3) !important;
+}
+
+body.theme-blue .revisoes-banner .revisoes-pill,
+body.skin-azul .revisoes-banner .revisoes-pill,
+[data-skin="azul"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(37, 99, 235, 0.25) !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+body.theme-blue .revisoes-banner .revisoes-pill-icon,
+body.theme-blue .revisoes-banner .revisoes-pill svg,
+body.skin-azul .revisoes-banner .revisoes-pill-icon,
+body.skin-azul .revisoes-banner .revisoes-pill svg,
+[data-skin="azul"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="azul"] .revisoes-banner .revisoes-pill svg {
+  color: #60a5fa !important;
+}
+
+body.theme-blue .revisoes-banner .revisoes-pill-text,
+body.theme-blue .revisoes-banner .revisoes-pill span,
+body.skin-azul .revisoes-banner .revisoes-pill-text,
+body.skin-azul .revisoes-banner .revisoes-pill span,
+[data-skin="azul"] .revisoes-banner .revisoes-pill-text,
+[data-skin="azul"] .revisoes-banner .revisoes-pill span {
+  color: #93c5fd !important;
+}
+
+/* 3. Overrides Específicos para Tema ROSA SUAVE (.theme-pink / .skin-rosa / [data-skin="rosa"]) */
+body.theme-pink .revisoes-banner,
+body.skin-rosa .revisoes-banner,
+[data-skin="rosa"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(219, 39, 119, 0.38) 0%, transparent 60%), linear-gradient(135deg, #831843 0%, #0f172a 50%, #180914 100%) !important;
+  border-color: rgba(244, 114, 182, 0.4) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(219, 39, 119, 0.25) !important;
+}
+
+body.theme-pink .revisoes-banner .revisoes-pill,
+body.skin-rosa .revisoes-banner .revisoes-pill,
+[data-skin="rosa"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(219, 39, 119, 0.25) !important;
+  border-color: rgba(244, 114, 182, 0.45) !important;
+}
+
+body.theme-pink .revisoes-banner .revisoes-pill-icon,
+body.theme-pink .revisoes-banner .revisoes-pill svg,
+body.skin-rosa .revisoes-banner .revisoes-pill-icon,
+body.skin-rosa .revisoes-banner .revisoes-pill svg,
+[data-skin="rosa"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="rosa"] .revisoes-banner .revisoes-pill svg {
+  color: #f472b6 !important;
+}
+
+body.theme-pink .revisoes-banner .revisoes-pill-text,
+body.theme-pink .revisoes-banner .revisoes-pill span,
+body.skin-rosa .revisoes-banner .revisoes-pill-text,
+body.skin-rosa .revisoes-banner .revisoes-pill span,
+[data-skin="rosa"] .revisoes-banner .revisoes-pill-text,
+[data-skin="rosa"] .revisoes-banner .revisoes-pill span {
+  color: #fbcfe8 !important;
+}
+
+/* 4. Overrides Específicos para Tema VERDE (Padrão) (.theme-green / .skin-verde / [data-skin="verde"]) */
+body.theme-green .revisoes-banner,
+body.skin-verde .revisoes-banner,
+[data-skin="verde"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(16, 185, 129, 0.32) 0%, transparent 60%), linear-gradient(135deg, #064e3b 0%, #0f172a 50%, #022c22 100%) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(16, 185, 129, 0.18) !important;
+}
+
+body.theme-green .revisoes-banner .revisoes-pill,
+body.skin-verde .revisoes-banner .revisoes-pill,
+[data-skin="verde"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+body.theme-green .revisoes-banner .revisoes-pill-icon,
+body.theme-green .revisoes-banner .revisoes-pill svg,
+body.skin-verde .revisoes-banner .revisoes-pill-icon,
+body.skin-verde .revisoes-banner .revisoes-pill svg,
+[data-skin="verde"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="verde"] .revisoes-banner .revisoes-pill svg {
+  color: #34d399 !important;
+}
+
+body.theme-green .revisoes-banner .revisoes-pill-text,
+body.theme-green .revisoes-banner .revisoes-pill span,
+body.skin-verde .revisoes-banner .revisoes-pill-text,
+body.skin-verde .revisoes-banner .revisoes-pill span,
+[data-skin="verde"] .revisoes-banner .revisoes-pill-text,
+[data-skin="verde"] .revisoes-banner .revisoes-pill span {
+  color: #6ee7b7 !important;
+}
+
+/* 5. Overrides Específicos para Tema ROXO (.theme-purple / .skin-roxo / [data-skin="roxo"]) */
+body.theme-purple .revisoes-banner,
+body.skin-roxo .revisoes-banner,
+body.skin-purple .revisoes-banner,
+[data-skin="roxo"] .revisoes-banner,
+[data-skin="purple"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(167, 139, 250, 0.35) 0%, transparent 60%), linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%) !important;
+  border-color: rgba(167, 139, 250, 0.45) !important;
+  box-shadow: 0 14px 35px -5px rgba(91, 33, 182, 0.5), 0 0 32px rgba(124, 58, 237, 0.4) !important;
+}
+
+body.theme-purple .revisoes-banner h2,
+[data-skin="roxo"] .revisoes-banner h2 {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill,
+body.skin-roxo .revisoes-banner .revisoes-pill,
+body.skin-purple .revisoes-banner .revisoes-pill,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill,
+[data-skin="purple"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(91, 33, 182, 0.6) !important;
+  border-color: rgba(167, 139, 250, 0.5) !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill-icon,
+body.theme-purple .revisoes-banner .revisoes-pill svg,
+body.skin-roxo .revisoes-banner .revisoes-pill-icon,
+body.skin-roxo .revisoes-banner .revisoes-pill svg,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill svg,
+[data-skin="purple"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="purple"] .revisoes-banner .revisoes-pill svg {
+  color: #C4B5FD !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill-text,
+body.theme-purple .revisoes-banner .revisoes-pill span,
+body.skin-roxo .revisoes-banner .revisoes-pill-text,
+body.skin-roxo .revisoes-banner .revisoes-pill span,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill-text,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill span,
+[data-skin="purple"] .revisoes-banner .revisoes-pill-text,
+[data-skin="purple"] .revisoes-banner .revisoes-pill span {
+  color: #E9D5FF !important;
+}
+
+/* ==========================================================================
+   TEMA 4: ROXO - .theme-purple / [data-skin="roxo"] / [data-skin="purple"]
+   Paleta:
+   - Modo Claro: Fundo lilás pálido (#F4F0FC), Sidebar lavanda claro (#EBE4F7), Cartões brancos (#FFFFFF), Textos chumbo (#333333)
+   - Modo Escuro: Fundo berinjela/índigo escuro (#130F1C), Sidebar e Cartões escuro fosco levemente arroxeado (#1F192E), Textos brancos (#F8FAFC)
+   - Acentos Compartilhados: Roxo Vibrante/Violeta (#7C3AED / #8B5CF6 / #A78BFA)
+   - Banners: Elegante degradê roxo (#7C3AED a #5B21B6) com textos brancos e glow roxo
+   - Post-it Dias Restantes: Fundo bege/papel (#FDF6E3) com números escuros (#1A202C) em ambos os modos
+   ========================================================================== */
+
+:root:has([data-skin="roxo"]),
+:root:has([data-skin="purple"]),
+[data-skin="roxo"],
+[data-skin="purple"],
+.skin-roxo,
+.skin-purple,
+body.theme-purple,
+.theme-purple {
+  --primary-color: #7C3AED;
+  --primary-hover: #8B5CF6;
+  --primary-active: #6D28D9;
+  --primary-text: #7C3AED;
+  --primary-text-dark: #A78BFA;
+  --primary-light: rgba(124, 58, 237, 0.12);
+  --primary-light-border: rgba(124, 58, 237, 0.3);
+  --secondary-color: #6D28D9;
+  --accent-color: #A78BFA;
+  --chart-glow: rgba(124, 58, 237, 0.35);
+  --card-shadow: 0 8px 24px rgba(124, 58, 237, 0.08);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(167, 139, 250, 0.3) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #2e1065 50%, #581c87 100%);
+  --banner-border: rgba(167, 139, 250, 0.4);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(124, 58, 237, 0.25);
+  --banner-badge-bg: rgba(124, 58, 237, 0.25);
+  --banner-badge-text: #C4B5FD;
+  --banner-badge-border: rgba(167, 139, 250, 0.45);
+  --banner-highlight-text: #E9D5FF;
+  --banner-progress-from: #8B5CF6;
+  --banner-progress-to: #C4B5FD;
+  --banner-progress-border: rgba(167, 139, 250, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(167, 139, 250, 0.3) 0%, transparent 60%), linear-gradient(135deg, #0f172a 0%, #2e1065 50%, #581c87 100%);
+  --revisoes-banner-border: rgba(167, 139, 250, 0.4);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(124, 58, 237, 0.25);
+  --revisoes-pill-bg: rgba(124, 58, 237, 0.25);
+  --revisoes-pill-border: rgba(167, 139, 250, 0.45);
+  --revisoes-pill-text: #C4B5FD;
+  --revisoes-pill-icon: #C4B5FD;
+  --badge-pill-bg: rgba(124, 58, 237, 0.18);
+  --badge-pill-text: #C4B5FD;
+  --badge-pill-border: rgba(167, 139, 250, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   1. REGRAS COMPARTILHADAS (AMBOS OS MODOS: CLARO E ESCURO)
+   -------------------------------------------------------------------------- */
+
+/* Acentos, Botões Primários e Badges */
+body.theme-purple button.bg-emerald-600,
+body.theme-purple a.bg-emerald-600,
+body.theme-purple .bg-emerald-600,
+body.theme-purple .theme-btn-primary,
+.theme-purple button.bg-emerald-600,
+.theme-purple a.bg-emerald-600,
+.theme-purple .bg-emerald-600,
+.theme-purple .theme-btn-primary,
+[data-skin="roxo"] button.bg-emerald-600,
+[data-skin="roxo"] a.bg-emerald-600,
+[data-skin="roxo"] .bg-emerald-600,
+[data-skin="roxo"] .theme-btn-primary {
+  background-color: #7C3AED !important;
+  background-image: linear-gradient(135deg, #7C3AED, #6D28D9) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35) !important;
+}
+
+body.theme-purple button.bg-emerald-600:hover,
+body.theme-purple .theme-btn-primary:hover,
+.theme-purple button.bg-emerald-600:hover,
+.theme-purple .theme-btn-primary:hover,
+[data-skin="roxo"] button.bg-emerald-600:hover,
+[data-skin="roxo"] .theme-btn-primary:hover {
+  background-image: linear-gradient(135deg, #8B5CF6, #7C3AED) !important;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5) !important;
+}
+
+/* Barras de progresso e Destaques */
+body.theme-purple .bg-emerald-500,
+body.theme-purple .bg-emerald-400,
+.theme-purple .bg-emerald-500,
+.theme-purple .bg-emerald-400,
+[data-skin="roxo"] .bg-emerald-500,
+[data-skin="roxo"] .bg-emerald-400 {
+  background-color: #7C3AED !important;
+}
+
+body.theme-purple .text-emerald-500,
+body.theme-purple .text-emerald-600,
+body.theme-purple .text-teal-400,
+.theme-purple .text-emerald-500,
+.theme-purple .text-emerald-600,
+.theme-purple .text-teal-400,
+[data-skin="roxo"] .text-emerald-500,
+[data-skin="roxo"] .text-emerald-600,
+[data-skin="roxo"] .text-teal-400 {
+  color: #7C3AED !important;
+}
+
+/* Itens ativos na Sidebar */
+body.theme-purple aside button.theme-primary-bg,
+body.theme-purple aside button.theme-btn-primary,
+.theme-purple aside button.theme-primary-bg,
+.theme-purple aside button.theme-btn-primary,
+[data-skin="roxo"] aside button.theme-primary-bg {
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4) !important;
+}
+
+/* Gráficos da Semana */
+body.theme-purple [class*="from-emerald-"],
+body.theme-purple [class*="to-emerald-"],
+body.theme-purple [class*="to-teal-"],
+.theme-purple [class*="from-emerald-"],
+.theme-purple [class*="to-emerald-"],
+.theme-purple [class*="to-teal-"] {
+  --tw-gradient-from: #7C3AED var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: #A78BFA var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+/* Banner Principal ("Receita Federal do Brasil") - Ambos os Modos */
+body.theme-purple .banner-principal,
+body.theme-purple .card-banner,
+.theme-purple .banner-principal,
+.theme-purple .card-banner,
+[data-skin="roxo"] .banner-principal,
+[data-skin="roxo"] .card-banner,
+[data-skin="purple"] .banner-principal,
+[data-skin="purple"] .card-banner {
+  background: radial-gradient(ellipse at 85% 25%, rgba(167, 139, 250, 0.3) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #2e1065 50%, #581c87 100%) !important;
+  border: 1px solid rgba(167, 139, 250, 0.4) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(124, 58, 237, 0.25) !important;
+}
+
+body.theme-purple .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+body.theme-purple .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+.theme-purple .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+.theme-purple .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+[data-skin="roxo"] .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+[data-skin="roxo"] .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *) {
+  color: #FFFFFF !important;
+}
+
+body.theme-purple .banner-principal h2,
+body.theme-purple .card-banner h2,
+.theme-purple .banner-principal h2,
+.theme-purple .card-banner h2 {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-purple .banner-principal .cargo-destaque,
+body.theme-purple .card-banner .cargo-destaque,
+.theme-purple .banner-principal .cargo-destaque,
+.theme-purple .card-banner .cargo-destaque,
+[data-skin="roxo"] .banner-principal .cargo-destaque,
+[data-skin="roxo"] .card-banner .cargo-destaque {
+  color: var(--primary-text-dark, #A78BFA) !important;
+  font-weight: 800 !important;
+}
+
+body.theme-purple .banner-principal .badge-ativo,
+body.theme-purple .card-banner .badge-ativo,
+.theme-purple .banner-principal .badge-ativo,
+.theme-purple .card-banner .badge-ativo,
+[data-skin="roxo"] .banner-principal .badge-ativo,
+[data-skin="roxo"] .card-banner .badge-ativo {
+  background-color: rgba(91, 33, 182, 0.6) !important;
+  color: #E9D5FF !important;
+  border: 1px solid rgba(167, 139, 250, 0.5) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  font-weight: 800 !important;
+}
+
+body.theme-purple .banner-principal .progresso-icone,
+body.theme-purple .banner-principal .progresso-texto,
+body.theme-purple .card-banner .progresso-icone,
+body.theme-purple .card-banner .progresso-texto,
+[data-skin="roxo"] .banner-principal .progresso-texto,
+[data-skin="roxo"] .card-banner .progresso-texto {
+  color: #E9D5FF !important;
+}
+
+body.theme-purple .banner-principal .progresso-trilho,
+body.theme-purple .card-banner .progresso-trilho,
+[data-skin="roxo"] .banner-principal .progresso-trilho,
+[data-skin="roxo"] .card-banner .progresso-trilho {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+body.theme-purple .banner-principal .barra-progresso,
+body.theme-purple .banner-principal .progresso-barra,
+body.theme-purple .card-banner .barra-progresso,
+body.theme-purple .card-banner .progresso-barra,
+[data-skin="roxo"] .banner-principal .barra-progresso,
+[data-skin="roxo"] .card-banner .barra-progresso {
+  background: linear-gradient(to right, #C4B5FD, #FFFFFF) !important;
+  box-shadow: 0 0 12px rgba(196, 181, 253, 0.6) !important;
+}
+
+/* Badge "Dias Restantes" (Fundo Escuro Fixo com Texto Branco Puro) */
+body.theme-purple .banner-principal .dias-restantes-card,
+body.theme-purple .card-banner .dias-restantes-card,
+body.skin-roxo .banner-principal .dias-restantes-card,
+body.skin-roxo .card-banner .dias-restantes-card,
+[data-skin="roxo"] .banner-principal .dias-restantes-card,
+[data-skin="roxo"] .card-banner .dias-restantes-card,
+[data-skin="purple"] .banner-principal .dias-restantes-card,
+[data-skin="purple"] .card-banner .dias-restantes-card {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(167, 139, 250, 0.4) !important;
+}
+
+body.theme-purple .dias-restantes-card *,
+body.skin-roxo .dias-restantes-card *,
+[data-skin="roxo"] .dias-restantes-card *,
+[data-skin="purple"] .dias-restantes-card * {
+  color: #FFFFFF !important;
+}
+
+/* Banner de Revisões Espaçadas - Ambos os Modos */
+body.theme-purple .revisoes-banner,
+.theme-purple .revisoes-banner,
+[data-skin="roxo"] .revisoes-banner,
+[data-skin="purple"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(167, 139, 250, 0.32) 0%, transparent 60%), linear-gradient(135deg, #2e1065 0%, #0f172a 50%, #1e1138 100%) !important;
+  border: 1px solid rgba(167, 139, 250, 0.35) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(124, 58, 237, 0.18) !important;
+}
+
+body.theme-purple .revisoes-banner h2,
+.theme-purple .revisoes-banner h2,
+[data-skin="roxo"] .revisoes-banner h2 {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-purple .revisoes-banner p,
+.theme-purple .revisoes-banner p,
+body.theme-purple .revisoes-banner .text-slate-300,
+.theme-purple .revisoes-banner .text-slate-300 {
+  color: #E9D5FF !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill,
+.theme-purple .revisoes-banner .revisoes-pill,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(124, 58, 237, 0.2) !important;
+  border: 1px solid rgba(167, 139, 250, 0.35) !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill-icon,
+body.theme-purple .revisoes-banner .revisoes-pill svg,
+.theme-purple .revisoes-banner .revisoes-pill-icon,
+.theme-purple .revisoes-banner .revisoes-pill svg,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill svg {
+  color: #C4B5FD !important;
+}
+
+body.theme-purple .revisoes-banner .revisoes-pill-text,
+body.theme-purple .revisoes-banner .revisoes-pill span,
+.theme-purple .revisoes-banner .revisoes-pill-text,
+.theme-purple .revisoes-banner .revisoes-pill span,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill-text,
+[data-skin="roxo"] .revisoes-banner .revisoes-pill span {
+  color: #E9D5FF !important;
+  font-weight: 800 !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. TEMA ROXO - MODO CLARO (Light Mode)
+   Fundo: #F4F0FC / Sidebar e Painéis de Destaque: #EBE4F7 / Cartões: #FFFFFF / Textos: #333333
+   -------------------------------------------------------------------------- */
+html:not(.dark):not(.dark-mode) body.theme-purple,
+html:not(.dark):not(.dark-mode) .theme-purple,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"],
+html:not(.dark):not(.dark-mode) [data-skin="purple"],
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .min-h-screen,
+html:not(.dark):not(.dark-mode) [data-skin="purple"] .min-h-screen,
+html:not(.dark):not(.dark-mode) body.theme-purple .min-h-screen {
+  background-color: #f8fafc !important;
+  color: #1e293b !important;
+}
+
+/* Sidebar e Painéis de Destaque no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-purple aside,
+html:not(.dark):not(.dark-mode) .theme-purple aside,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] aside,
+html:not(.dark):not(.dark-mode) [data-skin="purple"] aside,
+html:not(.dark):not(.dark-mode) body.theme-purple header,
+html:not(.dark):not(.dark-mode) .theme-purple header,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] header,
+html:not(.dark):not(.dark-mode) [data-skin="purple"] header {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html:not(.dark):not(.dark-mode) body.theme-purple aside .bg-emerald-50\/70,
+html:not(.dark):not(.dark-mode) .theme-purple aside .bg-emerald-50\/70,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] aside .bg-emerald-50\/70 {
+  background-color: rgba(124, 58, 237, 0.08) !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
+}
+
+/* Cartões Principais no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-purple .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-purple .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) .theme-purple .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) .theme-purple .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-purple .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *),
+html:not(.dark):not(.dark-mode) .theme-purple .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *) {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Textos Principais no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-purple h1,
+html:not(.dark):not(.dark-mode) body.theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) body.theme-purple h3,
+html:not(.dark):not(.dark-mode) body.theme-purple h4,
+html:not(.dark):not(.dark-mode) .theme-purple h1,
+html:not(.dark):not(.dark-mode) .theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) .theme-purple h3,
+html:not(.dark):not(.dark-mode) .theme-purple h4,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] h1,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] h3,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] h4,
+html:not(.dark):not(.dark-mode) body.theme-purple .text-slate-900,
+html:not(.dark):not(.dark-mode) body.theme-purple .text-slate-800,
+html:not(.dark):not(.dark-mode) .theme-purple .text-slate-900,
+html:not(.dark):not(.dark-mode) .theme-purple .text-slate-800,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .text-slate-900,
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .text-slate-800 {
+  color: #0f172a !important;
+}
+
+/* Textos Secundários no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-purple .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) body.theme-purple .text-slate-400:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) .theme-purple .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) .theme-purple .text-slate-400:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) [data-skin="roxo"] .text-slate-400:not(.dias-restantes-card *) {
+  color: #64748B !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. TEMA ROXO - MODO ESCURO (.dark-mode.theme-purple / html.dark body.theme-purple)
+   Fundo: #020617 (slate-950) / Sidebar e Cartões: #0f172a (slate-900)
+   -------------------------------------------------------------------------- */
+body.dark.theme-purple,
+body.dark-mode.theme-purple,
+html.dark body.theme-purple,
+html.dark-mode body.theme-purple,
+html.dark [data-skin="roxo"],
+html.dark-mode [data-skin="roxo"],
+html.dark [data-skin="purple"],
+html.dark-mode [data-skin="purple"],
+body.dark.theme-purple .min-h-screen,
+body.dark-mode.theme-purple .min-h-screen,
+html.dark body.theme-purple .min-h-screen,
+html.dark-mode body.theme-purple .min-h-screen,
+html.dark [data-skin="roxo"] .min-h-screen,
+html.dark-mode [data-skin="roxo"] .min-h-screen {
+  background-color: #020617 !important;
+  color: #F8FAFC !important;
+}
+
+/* Sidebar no Modo Escuro */
+body.dark.theme-purple aside,
+body.dark-mode.theme-purple aside,
+html.dark body.theme-purple aside,
+html.dark-mode body.theme-purple aside,
+html.dark [data-skin="roxo"] aside,
+html.dark-mode [data-skin="roxo"] aside,
+body.dark.theme-purple header,
+body.dark-mode.theme-purple header,
+html.dark body.theme-purple header,
+html.dark-mode body.theme-purple header,
+html.dark [data-skin="roxo"] header,
+html.dark-mode [data-skin="roxo"] header {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+body.dark.theme-purple aside .dark\:bg-emerald-950\/30,
+body.dark-mode.theme-purple aside .dark\:bg-emerald-950\/30,
+html.dark body.theme-purple aside .dark\:bg-emerald-950\/30,
+html.dark-mode body.theme-purple aside .dark\:bg-emerald-950\/30 {
+  background-color: rgba(124, 58, 237, 0.18) !important;
+  border-color: rgba(167, 139, 250, 0.25) !important;
+}
+
+/* Cartões no Modo Escuro */
+body.dark.theme-purple .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark.theme-purple .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-mode.theme-purple .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-mode.theme-purple .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark body.theme-purple .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark body.theme-purple .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark-mode body.theme-purple .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark-mode body.theme-purple .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark [data-skin="roxo"] .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark [data-skin="roxo"] .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card) {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Textos Principais no Modo Escuro: Branco ou cinza claro (#F8FAFC) */
+body.dark.theme-purple h1,
+body.dark.theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark.theme-purple h3,
+body.dark.theme-purple h4,
+body.dark-mode.theme-purple h1,
+body.dark-mode.theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark-mode.theme-purple h3,
+body.dark-mode.theme-purple h4,
+html.dark body.theme-purple h1,
+html.dark body.theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html.dark body.theme-purple h3,
+html.dark body.theme-purple h4,
+html.dark-mode body.theme-purple h1,
+html.dark-mode body.theme-purple h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html.dark-mode body.theme-purple h3,
+html.dark-mode body.theme-purple h4,
+body.dark.theme-purple .text-slate-900,
+body.dark.theme-purple .dark\:text-slate-100,
+body.dark-mode.theme-purple .text-slate-900,
+body.dark-mode.theme-purple .dark\:text-slate-100,
+html.dark body.theme-purple .text-slate-900,
+html.dark body.theme-purple .dark\:text-slate-100,
+html.dark-mode body.theme-purple .text-slate-900,
+html.dark-mode body.theme-purple .dark\:text-slate-100,
+html.dark [data-skin="roxo"] .text-slate-900,
+html.dark [data-skin="roxo"] .dark\:text-slate-100 {
+  color: #F8FAFC !important;
+}
+
+/* Textos Secundários no Modo Escuro */
+body.dark.theme-purple .text-slate-500:not(.dias-restantes-card *),
+body.dark.theme-purple .text-slate-400:not(.dias-restantes-card *),
+body.dark.theme-purple .dark\:text-slate-400:not(.dias-restantes-card *),
+body.dark-mode.theme-purple .text-slate-500:not(.dias-restantes-card *),
+body.dark-mode.theme-purple .text-slate-400:not(.dias-restantes-card *),
+body.dark-mode.theme-purple .dark\:text-slate-400:not(.dias-restantes-card *),
+html.dark body.theme-purple .text-slate-500:not(.dias-restantes-card *),
+html.dark body.theme-purple .text-slate-400:not(.dias-restantes-card *),
+html.dark body.theme-purple .dark\:text-slate-400:not(.dias-restantes-card *),
+html.dark-mode body.theme-purple .text-slate-500:not(.dias-restantes-card *),
+html.dark-mode body.theme-purple .text-slate-400:not(.dias-restantes-card *),
+html.dark-mode body.theme-purple .dark\:text-slate-400:not(.dias-restantes-card *) {
+  color: #94A3B8 !important;
+}
+
+/* Caixas de estatísticas no banner de revisões no Modo Escuro */
+body.dark.theme-purple .revisoes-banner .bg-slate-900\/80,
+body.dark-mode.theme-purple .revisoes-banner .bg-slate-900\/80,
+html.dark body.theme-purple .revisoes-banner .bg-slate-900\/80,
+html.dark-mode body.theme-purple .revisoes-banner .bg-slate-900\/80 {
+  background-color: rgba(31, 25, 46, 0.9) !important;
+  border-color: rgba(167, 139, 250, 0.35) !important;
+}
+
+/* ==========================================================================
+   TEMA 5: LARANJA - .theme-orange / .theme-laranja / [data-skin="laranja"]
+   Paleta:
+   - Modo Claro: Fundo creme suave (#FFF8F0), Sidebar e Cartões brancos (#FFFFFF), Textos escuros (#1A202C / #333333)
+   - Modo Escuro: Fundo escuro azulado (#0A0F1D), Sidebar e Cartões azul marinho (#111A33), Textos brancos (#F8FAFC)
+   - Acentos Compartilhados: Laranja Vibrante (#FF6B00 / #D83100), Amarelo (#FFCC00)
+   - Banners: Forte degradê Laranja/Vermelho com textos brancos em ambos os modos
+   - Post-it Dias Restantes: Fundo amarelo/laranja claro (#FFE4A0) com números pretos (#000000)
+   ========================================================================== */
+
+:root:has([data-skin="laranja"]),
+:root:has([data-skin="orange"]),
+:root:has([data-skin="dbz"]),
+[data-skin="laranja"],
+[data-skin="orange"],
+[data-skin="dbz"],
+.skin-laranja,
+.skin-orange,
+.skin-dbz,
+body.theme-orange,
+body.theme-laranja,
+body.theme-dbz,
+.theme-orange,
+.theme-laranja,
+.theme-dbz {
+  --primary-color: #FF6B00;
+  --primary-hover: #FF8533;
+  --primary-active: #D83100;
+  --primary-text: #FF6B00;
+  --primary-text-dark: #FFCC00;
+  --primary-light: rgba(255, 107, 0, 0.15);
+  --primary-light-border: rgba(255, 107, 0, 0.35);
+  --secondary-color: #D83100;
+  --accent-color: #FFCC00;
+  --chart-glow: rgba(255, 107, 0, 0.35);
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --banner-bg: radial-gradient(ellipse at 85% 25%, rgba(255, 153, 0, 0.32) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #431407 45%, #7c2d12 75%, #c2410c 100%);
+  --banner-border: rgba(255, 107, 0, 0.45);
+  --banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 107, 0, 0.25);
+  --banner-badge-bg: rgba(255, 107, 0, 0.25);
+  --banner-badge-text: #FFCC00;
+  --banner-badge-border: rgba(255, 204, 0, 0.55);
+  --banner-highlight-text: #FF8533;
+  --banner-progress-from: #FF6B00;
+  --banner-progress-to: #FFCC00;
+  --banner-progress-border: rgba(255, 204, 0, 0.3);
+  --revisoes-banner-bg: radial-gradient(ellipse at 15% 25%, rgba(255, 153, 0, 0.32) 0%, transparent 60%), linear-gradient(135deg, #0f172a 0%, #431407 45%, #7c2d12 75%, #c2410c 100%);
+  --revisoes-banner-border: rgba(255, 107, 0, 0.45);
+  --revisoes-banner-glow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 107, 0, 0.25);
+  --revisoes-pill-bg: rgba(255, 107, 0, 0.25);
+  --revisoes-pill-border: rgba(255, 204, 0, 0.55);
+  --revisoes-pill-text: #FFCC00;
+  --revisoes-pill-icon: #FFCC00;
+  --badge-pill-bg: rgba(255, 107, 0, 0.18);
+  --badge-pill-text: #FFCC00;
+  --badge-pill-border: rgba(255, 204, 0, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   1. REGRAS COMPARTILHADAS (AMBOS OS MODOS: CLARO E ESCURO)
+   -------------------------------------------------------------------------- */
+
+/* Acentos, Botões Primários e Badges */
+body.theme-orange button.bg-emerald-600,
+body.theme-orange a.bg-emerald-600,
+body.theme-orange .bg-emerald-600,
+body.theme-orange .theme-btn-primary,
+body.theme-laranja button.bg-emerald-600,
+body.theme-laranja a.bg-emerald-600,
+body.theme-laranja .bg-emerald-600,
+body.theme-laranja .theme-btn-primary,
+[data-skin="laranja"] button.bg-emerald-600,
+[data-skin="laranja"] a.bg-emerald-600,
+[data-skin="laranja"] .bg-emerald-600,
+[data-skin="laranja"] .theme-btn-primary {
+  background-color: #FF6B00 !important;
+  background-image: linear-gradient(135deg, #FF6B00, #D83100) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(255, 107, 0, 0.35) !important;
+}
+
+body.theme-orange button.bg-emerald-600:hover,
+body.theme-orange .theme-btn-primary:hover,
+body.theme-laranja button.bg-emerald-600:hover,
+body.theme-laranja .theme-btn-primary:hover,
+[data-skin="laranja"] button.bg-emerald-600:hover,
+[data-skin="laranja"] .theme-btn-primary:hover {
+  background-image: linear-gradient(135deg, #FF8533, #FF6B00) !important;
+  box-shadow: 0 6px 20px rgba(255, 107, 0, 0.5) !important;
+}
+
+/* Barras de progresso e Destaques */
+body.theme-orange .bg-emerald-500,
+body.theme-orange .bg-emerald-400,
+body.theme-laranja .bg-emerald-500,
+body.theme-laranja .bg-emerald-400,
+[data-skin="laranja"] .bg-emerald-500,
+[data-skin="laranja"] .bg-emerald-400 {
+  background-color: #FF6B00 !important;
+}
+
+body.theme-orange .text-emerald-500,
+body.theme-orange .text-emerald-600,
+body.theme-orange .text-teal-400,
+body.theme-laranja .text-emerald-500,
+body.theme-laranja .text-emerald-600,
+body.theme-laranja .text-teal-400,
+[data-skin="laranja"] .text-emerald-500,
+[data-skin="laranja"] .text-emerald-600,
+[data-skin="laranja"] .text-teal-400 {
+  color: #FF6B00 !important;
+}
+
+/* Itens ativos na Sidebar */
+body.theme-orange aside button.theme-primary-bg,
+body.theme-laranja aside button.theme-primary-bg,
+[data-skin="laranja"] aside button.theme-primary-bg {
+  background: linear-gradient(135deg, #FF6B00 0%, #D83100 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(255, 107, 0, 0.4) !important;
+}
+
+/* Banner Principal ("Receita Federal do Brasil") - Ambos os Modos */
+body.theme-orange .banner-principal,
+body.theme-orange .card-banner,
+body.theme-laranja .banner-principal,
+body.theme-laranja .card-banner,
+[data-skin="laranja"] .banner-principal,
+[data-skin="laranja"] .card-banner {
+  background: radial-gradient(ellipse at 85% 25%, rgba(255, 153, 0, 0.32) 0%, transparent 65%), linear-gradient(135deg, #0f172a 0%, #431407 45%, #7c2d12 75%, #c2410c 100%) !important;
+  border: 1px solid rgba(255, 107, 0, 0.45) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 28px rgba(255, 107, 0, 0.25) !important;
+}
+
+body.theme-orange .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+body.theme-orange .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+body.theme-laranja .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+body.theme-laranja .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+[data-skin="laranja"] .banner-principal *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *),
+[data-skin="laranja"] .card-banner *:not(.dias-restantes-card *):not(.badge-ativo *):not(.badge-ativo):not(.cargo-destaque):not(.cargo-destaque *) {
+  color: #FFFFFF !important;
+}
+
+body.theme-orange .banner-principal h2,
+body.theme-orange .card-banner h2,
+body.theme-laranja .banner-principal h2,
+body.theme-laranja .card-banner h2,
+[data-skin="laranja"] .banner-principal h2,
+[data-skin="laranja"] .card-banner h2 {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-orange .banner-principal .cargo-destaque,
+body.theme-orange .card-banner .cargo-destaque,
+body.theme-laranja .banner-principal .cargo-destaque,
+body.theme-laranja .card-banner .cargo-destaque,
+[data-skin="laranja"] .banner-principal .cargo-destaque,
+[data-skin="laranja"] .card-banner .cargo-destaque {
+  color: var(--primary-hover, #FF8533) !important;
+  font-weight: 900 !important;
+}
+
+body.theme-orange .banner-principal .badge-ativo,
+body.theme-orange .card-banner .badge-ativo,
+body.theme-laranja .banner-principal .badge-ativo,
+body.theme-laranja .card-banner .badge-ativo,
+[data-skin="laranja"] .banner-principal .badge-ativo,
+[data-skin="laranja"] .card-banner .badge-ativo {
+  background-color: rgba(255, 107, 0, 0.25) !important;
+  color: #FFCC00 !important;
+  border: 1px solid rgba(255, 204, 0, 0.55) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  font-weight: 800 !important;
+}
+
+body.theme-orange .banner-principal .barra-progresso,
+body.theme-orange .banner-principal .progresso-barra,
+body.theme-orange .card-banner .barra-progresso,
+body.theme-orange .card-banner .progresso-barra,
+body.theme-laranja .banner-principal .barra-progresso,
+body.theme-laranja .banner-principal .progresso-barra,
+body.theme-laranja .card-banner .barra-progresso,
+body.theme-laranja .card-banner .progresso-barra,
+[data-skin="laranja"] .banner-principal .barra-progresso,
+[data-skin="laranja"] .card-banner .barra-progresso {
+  background: linear-gradient(to right, #FFCC00, #FFFFFF) !important;
+  box-shadow: 0 0 12px rgba(255, 204, 0, 0.6) !important;
+}
+
+/* Badge "Dias Restantes" (Fundo Escuro Fixo com Texto Branco Puro) */
+body.theme-orange .banner-principal .dias-restantes-card,
+body.theme-orange .card-banner .dias-restantes-card,
+body.theme-laranja .banner-principal .dias-restantes-card,
+body.theme-laranja .card-banner .dias-restantes-card,
+[data-skin="laranja"] .banner-principal .dias-restantes-card,
+[data-skin="laranja"] .card-banner .dias-restantes-card {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(255, 204, 0, 0.4) !important;
+}
+
+body.theme-orange .dias-restantes-card *,
+body.theme-laranja .dias-restantes-card *,
+[data-skin="laranja"] .dias-restantes-card * {
+  color: #FFFFFF !important;
+}
+
+/* Banner de Revisões Espaçadas - Ambos os Modos */
+body.theme-orange .revisoes-banner,
+body.theme-laranja .revisoes-banner,
+[data-skin="laranja"] .revisoes-banner {
+  background: radial-gradient(ellipse at 15% 25%, rgba(255, 153, 0, 0.3) 0%, transparent 60%), linear-gradient(135deg, #431407 0%, #0f172a 50%, #1a0803 100%) !important;
+  border: 1px solid rgba(255, 107, 0, 0.35) !important;
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 107, 0, 0.18) !important;
+}
+
+body.theme-orange .revisoes-banner h2,
+body.theme-laranja .revisoes-banner h2,
+[data-skin="laranja"] .revisoes-banner h2 {
+  color: #FFFFFF !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+body.theme-orange .revisoes-banner .revisoes-pill,
+body.theme-laranja .revisoes-banner .revisoes-pill,
+[data-skin="laranja"] .revisoes-banner .revisoes-pill {
+  background-color: rgba(255, 107, 0, 0.2) !important;
+  border: 1px solid rgba(255, 204, 0, 0.35) !important;
+}
+
+body.theme-orange .revisoes-banner .revisoes-pill-icon,
+body.theme-orange .revisoes-banner .revisoes-pill svg,
+body.theme-laranja .revisoes-banner .revisoes-pill-icon,
+body.theme-laranja .revisoes-banner .revisoes-pill svg,
+[data-skin="laranja"] .revisoes-banner .revisoes-pill-icon,
+[data-skin="laranja"] .revisoes-banner .revisoes-pill svg {
+  color: #FFCC00 !important;
+}
+
+body.theme-orange .revisoes-banner .revisoes-pill-text,
+body.theme-orange .revisoes-banner .revisoes-pill span,
+body.theme-laranja .revisoes-banner .revisoes-pill-text,
+body.theme-laranja .revisoes-banner .revisoes-pill span,
+[data-skin="laranja"] .revisoes-banner .revisoes-pill-text,
+[data-skin="laranja"] .revisoes-banner .revisoes-pill span {
+  color: #FFCC00 !important;
+  font-weight: 800 !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. TEMA LARANJA - MODO CLARO (Light Mode)
+   Fundo: #FFF8F0 / Sidebar e Cartões: #FFFFFF / Textos: #1A202C (#333333)
+   -------------------------------------------------------------------------- */
+html:not(.dark):not(.dark-mode) body.theme-orange,
+html:not(.dark):not(.dark-mode) body.theme-laranja,
+html:not(.dark):not(.dark-mode) .theme-orange,
+html:not(.dark):not(.dark-mode) .theme-laranja,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"],
+html:not(.dark):not(.dark-mode) [data-skin="orange"],
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .min-h-screen,
+html:not(.dark):not(.dark-mode) body.theme-orange .min-h-screen,
+html:not(.dark):not(.dark-mode) body.theme-laranja .min-h-screen {
+  background-color: #f8fafc !important;
+  color: #1A202C !important;
+}
+
+/* Sidebar no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-orange aside,
+html:not(.dark):not(.dark-mode) body.theme-laranja aside,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] aside,
+html:not(.dark):not(.dark-mode) body.theme-orange header,
+html:not(.dark):not(.dark-mode) body.theme-laranja header,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] header {
+  background-color: #FFFFFF !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Cartões no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-orange .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-orange .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-laranja .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-laranja .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .rounded-2xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .rounded-xl.border:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card),
+html:not(.dark):not(.dark-mode) body.theme-orange .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *),
+html:not(.dark):not(.dark-mode) body.theme-laranja .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .bg-slate-900:not(.banner-principal):not(.banner-principal *):not(.card-banner):not(.card-banner *):not(.revisoes-banner):not(.revisoes-banner *):not(.dias-restantes-card):not(.dias-restantes-card *):not(.bg-slate-950):not(.timer-focus-box):not([class*="bg-slate-950"]):not(.plano-card):not(button):not(button *) {
+  background-color: #FFFFFF !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Textos Principais no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-orange h1,
+html:not(.dark):not(.dark-mode) body.theme-orange h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) body.theme-orange h3,
+html:not(.dark):not(.dark-mode) body.theme-orange h4,
+html:not(.dark):not(.dark-mode) body.theme-laranja h1,
+html:not(.dark):not(.dark-mode) body.theme-laranja h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) body.theme-laranja h3,
+html:not(.dark):not(.dark-mode) body.theme-laranja h4,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] h1,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] h3,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] h4,
+html:not(.dark):not(.dark-mode) body.theme-orange .text-slate-900,
+html:not(.dark):not(.dark-mode) body.theme-orange .text-slate-800,
+html:not(.dark):not(.dark-mode) body.theme-laranja .text-slate-900,
+html:not(.dark):not(.dark-mode) body.theme-laranja .text-slate-800,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .text-slate-900,
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .text-slate-800 {
+  color: #0f172a !important;
+}
+
+/* Textos Secundários no Modo Claro */
+html:not(.dark):not(.dark-mode) body.theme-orange .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) body.theme-orange .text-slate-400:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) body.theme-laranja .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) body.theme-laranja .text-slate-400:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .text-slate-500:not(.dias-restantes-card *),
+html:not(.dark):not(.dark-mode) [data-skin="laranja"] .text-slate-400:not(.dias-restantes-card *) {
+  color: #64748B !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. TEMA LARANJA - MODO ESCURO (Dark Mode)
+   Fundo: #020617 (slate-950) / Sidebar e Cartões: #0f172a (slate-900)
+   -------------------------------------------------------------------------- */
+body.dark.theme-orange,
+body.dark.theme-laranja,
+body.dark-mode.theme-orange,
+body.dark-mode.theme-laranja,
+html.dark body.theme-orange,
+html.dark body.theme-laranja,
+html.dark-mode body.theme-orange,
+html.dark-mode body.theme-laranja,
+html.dark [data-skin="laranja"],
+html.dark-mode [data-skin="laranja"],
+body.dark.theme-orange .min-h-screen,
+body.dark.theme-laranja .min-h-screen,
+html.dark [data-skin="laranja"] .min-h-screen {
+  background-color: #020617 !important;
+  color: #F8FAFC !important;
+}
+
+/* Sidebar no Modo Escuro */
+body.dark.theme-orange aside,
+body.dark.theme-laranja aside,
+body.dark-mode.theme-orange aside,
+body.dark-mode.theme-laranja aside,
+html.dark [data-skin="laranja"] aside,
+html.dark-mode [data-skin="laranja"] aside,
+body.dark.theme-orange header,
+body.dark.theme-laranja header,
+html.dark [data-skin="laranja"] header {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+/* Cartões no Modo Escuro */
+body.dark.theme-orange .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark.theme-orange .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-theme-laranja .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-theme-laranja .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark.theme-laranja .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark.theme-laranja .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-mode.theme-orange .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+body.dark-mode.theme-laranja .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark [data-skin="laranja"] .rounded-2xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card),
+html.dark [data-skin="laranja"] .rounded-xl.border:not(.banner-principal):not(.card-banner):not(.revisoes-banner):not(.dias-restantes-card):not(.timer-focus-box):not(.bg-slate-950):not(.plano-card) {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Textos Principais no Modo Escuro */
+body.dark.theme-orange h1,
+body.dark.theme-orange h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark.theme-orange h3,
+body.dark.theme-orange h4,
+body.dark.theme-laranja h1,
+body.dark.theme-laranja h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark.theme-laranja h3,
+body.dark.theme-laranja h4,
+body.dark-mode.theme-orange h1,
+body.dark-mode.theme-orange h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark-mode.theme-orange h3,
+body.dark-mode.theme-orange h4,
+body.dark-mode.theme-laranja h1,
+body.dark-mode.theme-laranja h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+body.dark-mode.theme-laranja h3,
+body.dark-mode.theme-laranja h4,
+body.dark.theme-orange .text-slate-900,
+body.dark.theme-orange .dark\:text-slate-100,
+body.dark.theme-laranja .text-slate-900,
+body.dark.theme-laranja .dark\:text-slate-100,
+html.dark [data-skin="laranja"] h1,
+html.dark [data-skin="laranja"] h2:not(.banner-principal *):not(.card-banner *):not(.revisoes-banner *),
+html.dark [data-skin="laranja"] h3,
+html.dark [data-skin="laranja"] h4,
+html.dark [data-skin="laranja"] .text-slate-900,
+html.dark [data-skin="laranja"] .dark\:text-slate-100 {
+  color: #F8FAFC !important;
+}
+
+/* Textos Secundários no Modo Escuro */
+body.dark.theme-orange .text-slate-500:not(.dias-restantes-card *),
+body.dark.theme-orange .text-slate-400:not(.dias-restantes-card *),
+body.dark.theme-orange .dark\:text-slate-400:not(.dias-restantes-card *),
+body.dark.theme-laranja .text-slate-500:not(.dias-restantes-card *),
+body.dark.theme-laranja .text-slate-400:not(.dias-restantes-card *),
+body.dark.theme-laranja .dark\:text-slate-400:not(.dias-restantes-card *),
+body.dark-mode.theme-orange .text-slate-500:not(.dias-restantes-card *),
+body.dark-mode.theme-orange .text-slate-400:not(.dias-restantes-card *),
+body.dark-mode.theme-laranja .text-slate-500:not(.dias-restantes-card *),
+body.dark-mode.theme-laranja .text-slate-400:not(.dias-restantes-card *),
+html.dark [data-skin="laranja"] .text-slate-500:not(.dias-restantes-card *),
+html.dark [data-skin="laranja"] .text-slate-400:not(.dias-restantes-card *) {
+  color: #94A3B8 !important;
+}
+
+/* ==========================================================================
+   REGRA UNIVERSAL DE CONTRASTE: BADGE 'DIAS RESTANTES' (PAINEL GERAL)
+   Garante fundo escuro e tipografia 100% branca pura em todos os temas e modos.
+   ========================================================================== */
+.dias-restantes-card,
+body .dias-restantes-card,
+html body .dias-restantes-card,
+.banner-principal .dias-restantes-card,
+.card-banner .dias-restantes-card {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #FFFFFF !important;
+}
+
+.dias-restantes-card *,
+.dias-restantes-card span,
+.dias-restantes-card span:first-child,
+.dias-restantes-card span.tracking-wider,
+.dias-restantes-card span.font-mono,
+.dias-restantes-card span.text-2xl,
+body .dias-restantes-card *,
+body .dias-restantes-card span,
+html body .dias-restantes-card *,
+html body .dias-restantes-card span,
+.banner-principal .dias-restantes-card *,
+.banner-principal .dias-restantes-card span,
+.card-banner .dias-restantes-card *,
+.card-banner .dias-restantes-card span {
+  color: #FFFFFF !important;
+}
+
+/* ==========================================================================
+   PADRONIZAÇÃO UNIVERSAL DO DARK MODE (VERDE, LARANJA, ROXO)
+   O fundo principal do app é estritamente #020617 (cinza muito escuro/preto)
+   em todos os temas. O tema altera apenas os detalhes e botões.
+   ========================================================================== */
+html.dark,
+html.dark body,
+html.dark #root,
+html.dark .min-h-screen,
+html.dark-mode,
+html.dark-mode body,
+html.dark-mode #root,
+html.dark-mode .min-h-screen {
+  background-color: #020617 !important;
+}
+
+/* ==========================================================================
+   BLOCO DO CRONÔMETRO (Sessão de Estudo em Foco)
+   O container do cronômetro tem fundo escuro (#020617 / bg-slate-950) e borda escura (#1e293b)
+   em TODOS os temas (Verde, Azul, Rosa, Roxo, Laranja) tanto no modo claro quanto escuro.
+   ========================================================================== */
+.timer-focus-box,
+div.timer-focus-box,
+[data-skin] .timer-focus-box,
+body .timer-focus-box,
+body.theme-purple .timer-focus-box,
+body.theme-orange .timer-focus-box,
+body.theme-laranja .timer-focus-box,
+[data-skin="roxo"] .timer-focus-box,
+[data-skin="laranja"] .timer-focus-box,
+[data-skin="rosa"] .timer-focus-box,
+[data-skin="azul"] .timer-focus-box,
+[data-skin="verde"] .timer-focus-box {
+  background-color: #020617 !important;
+  border: 1px solid #1e293b !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   CARDS DE PLANOS & ASSINATURA - NEON GLASSMORPHISM (DARK MODE)
+   Fundo translúcido, borda fina na cor do tema, forte brilho neon externo/interno,
+   badge com glow halo, tipografia de alto contraste e botão de ação translúcido com borda neon.
+   ========================================================================== */
+
+/* Efeito Neon Glassmorphism no Modo Escuro */
+html.dark .plano-card,
+html.dark-mode .plano-card,
+body.dark .plano-card,
+body.dark-mode .plano-card,
+.dark .plano-card {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  background-image: radial-gradient(circle at 50% 0%, var(--primary-light, rgba(16, 185, 129, 0.12)) 0%, transparent 75%) !important;
+  border: 1px solid var(--primary-color) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  box-shadow: 0 0 16px -2px var(--primary-color),
+              0 12px 30px -4px rgba(0, 0, 0, 0.7),
+              inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+              inset 0 0 18px -4px var(--primary-color) !important;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html.dark .plano-card:hover,
+html.dark-mode .plano-card:hover,
+body.dark .plano-card:hover,
+body.dark-mode .plano-card:hover,
+.dark .plano-card:hover {
+  transform: translateY(-6px) !important;
+  border-color: var(--primary-hover, var(--primary-color)) !important;
+  box-shadow: 0 0 28px 2px var(--primary-color),
+              0 18px 38px -4px rgba(0, 0, 0, 0.8),
+              inset 0 1px 2px 0 rgba(255, 255, 255, 0.25),
+              inset 0 0 26px -2px var(--primary-color) !important;
+}
+
+/* Card Destacado (Plano Anual PRO - Recomendado) */
+html.dark .plano-card.plano-highlight,
+html.dark-mode .plano-card.plano-highlight,
+body.dark .plano-card.plano-highlight,
+body.dark-mode .plano-card.plano-highlight,
+.dark .plano-card.plano-highlight {
+  border-width: 1.5px !important;
+  border-color: var(--primary-hover, var(--primary-color)) !important;
+  background-color: rgba(15, 23, 42, 0.55) !important;
+  box-shadow: 0 0 24px 1px var(--primary-color),
+              0 16px 36px -4px rgba(0, 0, 0, 0.75),
+              inset 0 1px 2px 0 rgba(255, 255, 255, 0.2),
+              inset 0 0 24px -2px var(--primary-color) !important;
+}
+
+html.dark .plano-card.plano-highlight:hover,
+html.dark-mode .plano-card.plano-highlight:hover,
+body.dark .plano-card.plano-highlight:hover,
+body.dark-mode .plano-card.plano-highlight:hover,
+.dark .plano-card.plano-highlight:hover {
+  box-shadow: 0 0 36px 4px var(--primary-color),
+              0 22px 42px -4px rgba(0, 0, 0, 0.85),
+              inset 0 1px 3px 0 rgba(255, 255, 255, 0.3),
+              inset 0 0 32px 0 var(--primary-color) !important;
+}
+
+/* Badges com Glow Halo Neon nos Cards de Planos */
+html.dark .plano-card .plano-badge,
+html.dark-mode .plano-card .plano-badge,
+.dark .plano-card .plano-badge {
+  background-color: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 10px currentColor, inset 0 0 5px currentColor !important;
+  filter: drop-shadow(0 0 5px currentColor) !important;
+}
+
+/* Botão de Ação dos Planos no Modo Escuro (Fundo escuro transparente com borda fina na cor do tema) */
+html.dark .plano-btn-action,
+html.dark-mode .plano-btn-action,
+body.dark .plano-btn-action,
+body.dark-mode .plano-btn-action,
+.dark .plano-btn-action {
+  background-color: rgba(2, 6, 23, 0.65) !important;
+  border: 1px solid var(--primary-color) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  box-shadow: 0 0 10px -1px var(--primary-color),
+              inset 0 0 8px rgba(255, 255, 255, 0.04) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+html.dark .plano-btn-action:hover,
+html.dark-mode .plano-btn-action:hover,
+body.dark .plano-btn-action:hover,
+body.dark-mode .plano-btn-action:hover,
+.dark .plano-btn-action:hover {
+  background-color: var(--primary-light, rgba(16, 185, 129, 0.18)) !important;
+  border-color: var(--primary-hover, var(--primary-color)) !important;
+  box-shadow: 0 0 18px 1px var(--primary-color),
+              inset 0 0 12px rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Botão do Plano Destacado */
+html.dark .plano-btn-action.plano-btn-highlight,
+html.dark-mode .plano-btn-action.plano-btn-highlight,
+.dark .plano-btn-action.plano-btn-highlight {
+  background-color: rgba(2, 6, 23, 0.75) !important;
+  border: 1.5px solid var(--primary-color) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 14px 0 var(--primary-color),
+              inset 0 0 10px var(--primary-light, rgba(16, 185, 129, 0.1)) !important;
+}
+
+html.dark .plano-btn-action.plano-btn-highlight:hover,
+html.dark-mode .plano-btn-action.plano-btn-highlight:hover,
+.dark .plano-btn-action.plano-btn-highlight:hover {
+  background-color: var(--primary-light, rgba(16, 185, 129, 0.25)) !important;
+  border-color: var(--primary-hover, var(--primary-color)) !important;
+  box-shadow: 0 0 24px 2px var(--primary-color),
+              inset 0 0 14px rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Botão Plano Atual (Desabilitado) */
+html.dark .plano-btn-current,
+html.dark-mode .plano-btn-current,
+.dark .plano-btn-current {
+  background-color: rgba(15, 23, 42, 0.4) !important;
+  border: 1px solid rgba(51, 65, 85, 0.5) !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   ABAS DE NAVEGAÇÃO - REVISÕES ESPAÇADAS (ESTADO ATIVO DARK PILL)
+   A aba ativa com estilo escuro (ex: Configurações) mantém fundo escuro (#0f172a / bg-slate-900)
+   e texto branco (#ffffff) perfeitamente visível em todos os temas (Verde, Azul, Rosa, Roxo, Laranja).
+   ========================================================================== */
+button.revisao-tab-active-dark,
+.revisoes-nav-tabs button.revisao-tab-active-dark,
+[data-skin] button.revisao-tab-active-dark,
+body.theme-purple button.revisao-tab-active-dark,
+body.theme-orange button.revisao-tab-active-dark,
+body.theme-laranja button.revisao-tab-active-dark,
+[data-skin="roxo"] button.revisao-tab-active-dark,
+[data-skin="laranja"] button.revisao-tab-active-dark,
+[data-skin="azul"] button.revisao-tab-active-dark,
+[data-skin="verde"] button.revisao-tab-active-dark,
+[data-skin="rosa"] button.revisao-tab-active-dark {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
+  border-color: transparent !important;
+}
+

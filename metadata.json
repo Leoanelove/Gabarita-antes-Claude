@@ -1,0 +1,6 @@
+{
+  "name": "Gabarita - Estudos para Concursos",
+  "description": "Plataforma profissional de planejamento de estudos, questões, simulados e revisões para concursos públicos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
