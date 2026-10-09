@@ -58,6 +58,7 @@ import { AIAssistantView } from './components/ai/AIAssistantView';
 import { AdminView } from './components/admin/AdminView';
 import { PlanosAssinaturaView } from './components/planos/PlanosAssinaturaView';
 import { StudySessionModal } from './components/estudos/StudySessionModal';
+import { StudyTimerProvider, useStudyTimer } from './contexts/StudyTimerContext';
 import { Loader2 } from 'lucide-react';
 
 const MainApp: React.FC = () => {
@@ -65,9 +66,14 @@ const MainApp: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const [isStudyTimerOpen, setIsStudyTimerOpen] = useState(false);
-  const [timerInitialDisciplinaId, setTimerInitialDisciplinaId] = useState<string | undefined>(undefined);
-  const [timerInitialAssuntoId, setTimerInitialAssuntoId] = useState<string | undefined>(undefined);
+  const {
+    isStudyTimerOpen,
+    timerInitialDisciplinaId,
+    timerInitialAssuntoId,
+    timerInitialDurationMinutes,
+    openStudyTimer,
+    closeStudyTimer,
+  } = useStudyTimer();
 
   const [concursos, setConcursos] = useState<Concurso[]>([]);
   const [provas, setProvas] = useState<Prova[]>([]);
@@ -130,7 +136,13 @@ const MainApp: React.FC = () => {
       setStats(st);
       setSimulados(s);
       setPlan(pl);
-      setCycle(cy);
+      const activeC = c.find(item => item.active) || c[0];
+      const targetId = activeC?.id || '';
+      if (targetId && cy && cy.concursoId !== targetId) {
+        DatabaseService.getStudyCycle(targetId).then(setCycle);
+      } else {
+        setCycle(cy);
+      }
       setStudyMethod(sm || 'ciclo');
       setIsDataLoading(false);
     }).catch(err => {
@@ -167,10 +179,8 @@ const MainApp: React.FC = () => {
     concursos[0] || null;
   const activeConcursoId = activeConcurso?.id || '';
 
-  const handleOpenStudyTimer = (disciplinaId?: string, assuntoId?: string) => {
-    setTimerInitialDisciplinaId(disciplinaId);
-    setTimerInitialAssuntoId(assuntoId);
-    setIsStudyTimerOpen(true);
+  const handleOpenStudyTimer = (disciplinaId?: string, assuntoId?: string, durationMinutes?: number | string) => {
+    openStudyTimer(disciplinaId, assuntoId, durationMinutes);
   };
 
   const handleUpdateSubscription = async (plan: UserPlan) => {
@@ -703,6 +713,9 @@ const MainApp: React.FC = () => {
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         studyMethod={studyMethod}
+        concursos={concursos}
+        activeConcursoId={activeConcursoId}
+        onSetActiveConcurso={handleSetActiveConcurso}
       />
 
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
@@ -747,6 +760,7 @@ const MainApp: React.FC = () => {
               onDeleteSession={handleDeleteStudySession}
               onAdvanceCycle={handleAdvanceCycle}
               onTogglePlanSession={(id) => handleTogglePlanSessionStatus(id, 'concluida')}
+              onOpenStudyTimer={handleOpenStudyTimer}
             />
           )}
 
@@ -806,6 +820,7 @@ const MainApp: React.FC = () => {
                 const cleared = await DatabaseService.removeStudyCycle();
                 setCycle(cleared);
               }}
+              onSaveCycle={setCycle}
             />
           )}
 
@@ -1041,12 +1056,14 @@ const MainApp: React.FC = () => {
 
       <StudySessionModal
         isOpen={isStudyTimerOpen}
-        onClose={() => setIsStudyTimerOpen(false)}
+        onClose={closeStudyTimer}
         disciplinas={disciplinas}
         assuntos={assuntos}
         initialDisciplinaId={timerInitialDisciplinaId}
         initialAssuntoId={timerInitialAssuntoId}
+        initialDurationMinutes={timerInitialDurationMinutes}
         onSaveSession={handleSaveStudySession}
+        onAdvanceCycle={handleAdvanceCycle}
       />
     </div>
   );
@@ -1056,7 +1073,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <MainApp />
+        <StudyTimerProvider>
+          <MainApp />
+        </StudyTimerProvider>
       </AuthProvider>
     </ThemeProvider>
   );

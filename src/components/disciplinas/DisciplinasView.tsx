@@ -10,7 +10,6 @@ import {
   Trash2, 
   Sparkles, 
   Filter, 
-  Play, 
   ListTree,
   ChevronDown,
   Check,
@@ -64,7 +63,7 @@ interface DisciplinasViewProps {
   onUpdateSubtopico: (assuntoId: string, subId: string, partial: Partial<Subtopico>) => Promise<void>;
   onDeleteSubtopico: (assuntoId: string, subId: string) => Promise<void>;
   onImportEditalTree: (payload: EditalAiImportPayload, concursoId?: string, mode?: 'merge' | 'replace') => Promise<void>;
-  onOpenStudyTimer: (disciplinaId?: string, assuntoId?: string) => void;
+  onOpenStudyTimer?: (disciplinaId?: string, assuntoId?: string) => void;
 }
 
 export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
@@ -87,7 +86,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   onUpdateSubtopico,
   onDeleteSubtopico,
   onImportEditalTree,
-  onOpenStudyTimer,
+  onOpenStudyTimer: _onOpenStudyTimer,
   onNavigateTab,
 }) => {
   // Estado local gerenciado para permitir atualizações instantâneas e otimistas
@@ -1317,16 +1316,8 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                   )}
                                 </div>
 
-                                {/* Ações do Tópico: Timer de estudo, editar, excluir */}
+                                {/* Ações do Tópico: Editar e excluir */}
                                 <div className="w-16 flex items-center justify-end gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => onOpenStudyTimer(disc.id, assunto.id)}
-                                    className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors cursor-pointer"
-                                    title="Iniciar Sessão de Estudo deste Tópico"
-                                  >
-                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => {

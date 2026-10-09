@@ -314,10 +314,12 @@ export const CriarCicloModal: React.FC<CriarCicloModalProps> = ({
         ? `${activeMatch.organ || activeMatch.orgao || activeMatch.title} - ${activeMatch.role}`
         : currentCycle?.concursoTitle || 'Plano Personalizado';
 
+      const targetConcursoId = resolvedActiveConcursoId || activeConcursoId || currentCycle?.concursoId || '';
+
       const newCycle: StudyCycle = {
-        id: `cycle_${resolvedActiveConcursoId || Date.now()}`,
+        id: `cycle_${targetConcursoId || Date.now()}`,
         userId: currentCycle?.userId || 'current_user',
-        concursoId: resolvedActiveConcursoId || currentCycle?.concursoId || 'current_concurso',
+        concursoId: targetConcursoId,
         concursoTitle: resolvedTitle,
         currentBlockIndex: 0,
         completedCyclesCount: 0,
@@ -326,6 +328,16 @@ export const CriarCicloModal: React.FC<CriarCicloModalProps> = ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+
+      // Salva imediatamente no localStorage com persistência garantida
+      if (targetConcursoId) {
+        try {
+          localStorage.setItem(`gabarita_ciclo_estudos_${targetConcursoId}`, JSON.stringify(newCycle));
+          localStorage.setItem(`gabarita_study_cycle_${targetConcursoId}`, JSON.stringify(newCycle));
+        } catch (e) {
+          console.warn('Erro ao gravar ciclo no localStorage:', e);
+        }
+      }
 
       // Salva no banco de dados e atualiza estado global
       await DatabaseService.saveStudyCycle(newCycle);

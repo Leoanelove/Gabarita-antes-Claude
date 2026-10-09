@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { sanitizeSyllabusData, parseSyllabusLocally, ParsedSyllabusItem } from './src/services/editalParser';
+import { sanitizeSyllabusData, parseSyllabusLocally, type ParsedSyllabusItem } from './src/services/editalParser.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

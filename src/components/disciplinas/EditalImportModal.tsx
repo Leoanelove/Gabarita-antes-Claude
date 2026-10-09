@@ -17,7 +17,7 @@ import { Concurso, EditalAiImportPayload, AssuntoImportance, TopicDifficulty } f
 import { Modal } from '../../design-system/Modal';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
-import { sanitizeSyllabusData, parseSyllabusLocally, ParsedSyllabusItem } from '../../services/editalParser';
+import { sanitizeSyllabusData, parseSyllabusLocally, type ParsedSyllabusItem } from '../../services/editalParser';
 
 interface EditalImportModalProps {
   isOpen: boolean;

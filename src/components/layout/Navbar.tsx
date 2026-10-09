@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, 
   Bell, 
-  Play, 
   Check, 
   ExternalLink, 
   Clock, 
@@ -12,7 +11,6 @@ import {
   Palette,
 } from 'lucide-react';
 import { NavigationTab, Notificacao, ColorSkin } from '../../types';
-import { Button } from '../../design-system/Button';
 import { DatabaseService } from '../../services/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme, SKINS_CONFIG } from '../../contexts/ThemeContext';
@@ -21,14 +19,13 @@ import { GezinhoLogo } from '../common/GezinhoLogo';
 interface NavbarProps {
   currentTab: NavigationTab;
   onOpenMobileMenu: () => void;
-  onOpenStudyTimer: () => void;
+  onOpenStudyTimer?: () => void;
   onNavigateTab: (tab: NavigationTab) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentTab,
   onOpenMobileMenu,
-  onOpenStudyTimer,
   onNavigateTab,
 }) => {
   const { user } = useAuth();
@@ -96,16 +93,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={onOpenStudyTimer}
-            leftIcon={<Play className="w-3.5 h-3.5 fill-current" />}
-            className="hidden sm:inline-flex shadow-sm"
-          >
-            Iniciar Estudo
-          </Button>
-
           {/* Botão de Alternância de Modo Claro / Escuro (Sun / Moon) */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xs">
             <button

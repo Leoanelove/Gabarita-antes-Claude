@@ -61,7 +61,7 @@ interface PlanoViewProps {
   onRescheduleSession: (sessionId: string, newDate: string, reason?: string) => Promise<void>;
   onBatchRescheduleOverdue: (targetDate?: string, mode?: 'today' | 'spread') => Promise<void>;
   onToggleSessionStatus: (sessionId: string, status: PlanSessionStatus) => Promise<void>;
-  onOpenStudyTimer: (disciplinaId?: string, assuntoId?: string) => void;
+  onOpenStudyTimer: (disciplinaId?: string, assuntoId?: string, durationMinutes?: number | string) => void;
   onAdvanceCycle?: (minutesStudied?: number) => Promise<void>;
   onRewindCycle?: () => Promise<void>;
   onRecordCycleProgress?: (additionalMinutes: number) => Promise<void>;
@@ -69,6 +69,7 @@ interface PlanoViewProps {
   onRecalculateCycle?: (baseSlotDuration?: number) => Promise<void>;
   onUpdateCycleBlock?: (blockId: string, partial: Partial<CycleBlock>) => Promise<void>;
   onRemoveCycle?: () => Promise<void>;
+  onSaveCycle?: (cycle: StudyCycle) => void;
 }
 
 export const PlanoView: React.FC<PlanoViewProps> = ({
@@ -96,6 +97,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
   onUpdateCycleBlock = async () => {},
   onRemoveCycle,
   onNavigateTab,
+  onSaveCycle,
 }) => {
   const effectiveActiveConcursoId = useMemo(() => {
     return activeConcursoId || concursos.find(c => c.active)?.id || concursos[0]?.id || '';
@@ -137,20 +139,56 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
     );
   }
 
-  const [currentCycle, setCurrentCycle] = useState<StudyCycle | null>(() => {
-    if (cycle && cycle.concursoId === effectiveActiveConcursoId) return cycle;
+  // Leitura síncrona imediata do localStorage para o concurso ativo
+  const readStoredCycle = (targetConcursoId: string): StudyCycle | null => {
+    if (!targetConcursoId) return null;
+    try {
+      const raw = localStorage.getItem(`gabarita_ciclo_estudos_${targetConcursoId}`) ||
+                  localStorage.getItem(`gabarita_ciclo_${targetConcursoId}`) ||
+                  localStorage.getItem(`gabarita_study_cycle_${targetConcursoId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao ler ciclo do concurso ativo no localStorage:', e);
+    }
     return null;
+  };
+
+  const [currentCycle, setCurrentCycle] = useState<StudyCycle | null>(() => {
+    if (cycle && cycle.concursoId === effectiveActiveConcursoId && cycle.blocks && cycle.blocks.length > 0) {
+      return cycle;
+    }
+    return readStoredCycle(effectiveActiveConcursoId);
   });
 
+  // Carrega o ciclo estritamente quando o concurso ativo muda
   useEffect(() => {
-    if (cycle && cycle.concursoId === effectiveActiveConcursoId) {
-      setCurrentCycle(cycle);
-    } else if (effectiveActiveConcursoId) {
+    if (!effectiveActiveConcursoId) return;
+
+    try {
+      const stored = readStoredCycle(effectiveActiveConcursoId);
+      if (stored) {
+        setCurrentCycle(stored);
+        return;
+      }
+
       DatabaseService.getStudyCycle(effectiveActiveConcursoId).then((c) => {
-        setCurrentCycle(c);
+        if (c && c.concursoId === effectiveActiveConcursoId && c.blocks && c.blocks.length > 0) {
+          setCurrentCycle(c);
+        } else {
+          setCurrentCycle(null);
+        }
+      }).catch((err) => {
+        console.error("Erro ao buscar ciclo no DatabaseService:", err);
       });
+    } catch (err) {
+      console.error("Erro ao carregar ciclo:", err);
     }
-  }, [cycle, effectiveActiveConcursoId]);
+  }, [effectiveActiveConcursoId]);
 
   const effectivePlan: StudyPlan = useMemo(() => {
     if (plan && (!effectiveActiveConcursoId || plan.concursoId === effectiveActiveConcursoId)) {
@@ -446,12 +484,14 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
           onOpenStudyTimer={onOpenStudyTimer}
           onSaveNewCycle={async (newC) => {
             setCurrentCycle(newC);
+            if (onSaveCycle) onSaveCycle(newC);
           }}
           onSwitchMethod={onSwitchMethod}
           onRemoveCycle={async () => {
             if (onRemoveCycle) await onRemoveCycle();
             const cleared = await DatabaseService.removeStudyCycle();
             setCurrentCycle(cleared);
+            if (onSaveCycle) onSaveCycle(cleared);
           }}
           onReplan={() => setIsMethodModalOpen(true)}
         />

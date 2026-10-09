@@ -287,6 +287,13 @@ body.theme-dbz,
   border: 1px solid var(--badge-pill-border, rgba(16, 185, 129, 0.3)) !important;
 }
 
+html:not(.dark) .sidebar-nivel-badge,
+body:not(.dark) .sidebar-nivel-badge {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  color: var(--primary-color, #334155) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
 /* Tag Concurso Ativo no Banner */
 .badge-ativo {
   background-color: var(--banner-badge-bg, rgba(16, 185, 129, 0.2)) !important;

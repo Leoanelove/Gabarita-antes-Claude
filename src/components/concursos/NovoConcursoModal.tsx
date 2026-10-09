@@ -22,7 +22,9 @@ import {
   ChevronUp,
   X,
   Pencil,
-  Check
+  Check,
+  FolderPlus,
+  Merge
 } from 'lucide-react';
 import { 
   Concurso, 
@@ -35,7 +37,7 @@ import {
 import { Modal } from '../../design-system/Modal';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
-import { sanitizeSyllabusData, parseSyllabusLocally, ParsedSyllabusItem, generateSigla, sanitizeTopicString, preSanitizeEditalText } from '../../services/editalParser';
+import { sanitizeSyllabusData, parseSyllabusLocally, type ParsedSyllabusItem, generateSigla, sanitizeTopicString, preSanitizeEditalText } from '../../services/editalParser';
 
 export interface ExtractedDiscipline {
   name: string;
@@ -389,6 +391,94 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
 
   const handleCancelEditTopic = () => {
     setEditingTopicKey(null);
+  };
+
+  // Curadoria manual inteligente: Promover Tópico para Nova Matéria
+  const handlePromoteTopicToSubject = (discIndex: number, topicIndex: number) => {
+    setDisciplinas(prev => {
+      const sourceDisc = prev[discIndex];
+      if (!sourceDisc || !sourceDisc.topicos[topicIndex]) return prev;
+
+      const promotedTopic = sourceDisc.topicos[topicIndex];
+      const remainingTopicsForSource = sourceDisc.topicos.slice(0, topicIndex);
+      const topicsForNewSubject = sourceDisc.topicos.slice(topicIndex + 1);
+
+      const colors = ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#14b8a6'];
+      const newColor = colors[prev.length % colors.length];
+
+      const newDiscipline: ExtractedDiscipline = {
+        name: promotedTopic.name,
+        weight: 2.0, // Peso padrão 2.0 / médio
+        color: newColor,
+        sigla: generateSigla(promotedTopic.name),
+        topicos: topicsForNewSubject,
+      };
+
+      const nextList = [...prev];
+      nextList[discIndex] = {
+        ...sourceDisc,
+        topicos: remainingTopicsForSource,
+      };
+      // Insere a nova disciplina logo abaixo da matéria de origem
+      nextList.splice(discIndex + 1, 0, newDiscipline);
+      return nextList;
+    });
+
+    // Auto-expande a nova matéria criada para feedback visual imediato
+    setExpandedDisciplines(prev => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        const k = parseInt(key, 10);
+        if (k <= discIndex) {
+          next[k] = val;
+        } else {
+          next[k + 1] = val;
+        }
+      });
+      next[discIndex + 1] = true;
+      return next;
+    });
+  };
+
+  // Curadoria manual inteligente: Mesclar com Matéria Anterior
+  const handleMergeWithPrevious = (discIndex: number) => {
+    if (discIndex <= 0) return;
+
+    setDisciplinas(prev => {
+      if (discIndex >= prev.length) return prev;
+      const prevDisc = prev[discIndex - 1];
+      const currentDisc = prev[discIndex];
+
+      // O nome da matéria atual vira um novo tópico no final da matéria anterior
+      const titleAsTopic = { name: currentDisc.name };
+      const mergedTopics = [
+        ...prevDisc.topicos,
+        titleAsTopic,
+        ...currentDisc.topicos,
+      ];
+
+      const nextList = prev.filter((_, idx) => idx !== discIndex);
+      nextList[discIndex - 1] = {
+        ...prevDisc,
+        topicos: mergedTopics,
+      };
+      return nextList;
+    });
+
+    // Atualiza mapa de expansão e mantém a anterior expandida
+    setExpandedDisciplines(prev => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        const k = parseInt(key, 10);
+        if (k < discIndex) {
+          next[k] = val;
+        } else if (k > discIndex) {
+          next[k - 1] = val;
+        }
+      });
+      next[discIndex - 1] = true;
+      return next;
+    });
   };
 
   const handleFinalSubmit = async () => {
@@ -897,11 +987,6 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
               {disciplinas.map((disc, idx) => {
                 const cleanName = (disc.name || '').trim();
                 if (!cleanName || !/[a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ]/.test(cleanName)) return null;
-                const validTopics = (disc.topicos || []).filter(t => {
-                  const tName = (t.name || '').trim();
-                  return tName.length > 0 && /[a-zA-ZáéíóúâêôãõçÁÉÍÓÚÂÊÔÃÕÇ]/.test(tName);
-                });
-                if (!disc.topicos || disc.topicos.length === 0 || validTopics.length === 0) return null;
                 const isExpanded = !!expandedDisciplines[idx];
 
                 return (
@@ -999,6 +1084,17 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
                           </select>
                         </div>
 
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMergeWithPrevious(idx)}
+                            className="p-1.5 text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Mesclar com Matéria Anterior"
+                          >
+                            <Merge className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => toggleDisciplineExpand(idx)}
@@ -1023,6 +1119,11 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
                     {isExpanded && (
                       <div className="px-3 pb-3 pt-1 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/60 space-y-2">
                         <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {disc.topicos.length === 0 && (
+                            <p className="text-[11px] text-slate-400 italic py-1 px-1">
+                              Nenhum tópico nesta matéria ainda. Adicione novos tópicos abaixo.
+                            </p>
+                          )}
                           {disc.topicos.map((topico, tIdx) => {
                             const isEditingThisTopic = editingTopicKey === `${idx}-${tIdx}`;
 
@@ -1076,6 +1177,14 @@ export const NovoConcursoModal: React.FC<NovoConcursoModalProps> = ({
                               >
                                 <span className="truncate flex-1 text-[11px]">• {topico.name}</span>
                                 <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePromoteTopicToSubject(idx, tIdx)}
+                                    className="text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-500/10 p-0.5 rounded-sm transition-colors cursor-pointer opacity-70 hover:opacity-100"
+                                    title="Transformar em Nova Matéria (promove este tópico e move os subsequentes)"
+                                  >
+                                    <FolderPlus className="w-3.5 h-3.5" />
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => handleStartEditTopic(idx, tIdx, topico.name)}

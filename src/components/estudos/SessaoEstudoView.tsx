@@ -64,6 +64,7 @@ interface SessaoEstudoViewProps {
   onDeleteSession?: (sessionId: string) => Promise<void>;
   onAdvanceCycle?: (minutesStudied?: number) => Promise<void>;
   onTogglePlanSession?: (sessionId: string, status: 'concluida') => Promise<void>;
+  onOpenStudyTimer?: (disciplinaId?: string, assuntoId?: string) => void;
 }
 
 type TabMode = 'foco' | 'manual' | 'historico';
@@ -81,6 +82,7 @@ export const SessaoEstudoView: React.FC<SessaoEstudoViewProps> = ({
   onDeleteSession,
   onAdvanceCycle,
   onTogglePlanSession,
+  onOpenStudyTimer,
 }) => {
   const [activeTab, setActiveTab] = useState<TabMode>('foco');
   const [timerState, setTimerState] = useState<ActiveTimerState | null>(() => TimerService.getActiveTimer());
@@ -186,6 +188,10 @@ export const SessaoEstudoView: React.FC<SessaoEstudoViewProps> = ({
   }, [assuntos, activeDiscId]);
 
   const handleStartRecommendation = () => {
+    if (onOpenStudyTimer) {
+      onOpenStudyTimer(nextStudyRecommendation.disciplinaId, nextStudyRecommendation.assuntoId);
+      return;
+    }
     const started = TimerService.startTimer({
       disciplinaId: nextStudyRecommendation.disciplinaId,
       disciplinaName: nextStudyRecommendation.disciplinaName,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Flame, 
   Clock, 
@@ -13,7 +13,8 @@ import {
   FileText, 
   AlertCircle, 
   Plus, 
-  CalendarClock 
+  CalendarClock,
+  Pencil 
 } from 'lucide-react';
 import { 
   Concurso, 
@@ -29,6 +30,9 @@ import {
 import { Card, CardHeader, CardBody } from '../../design-system/Card';
 import { Button } from '../../design-system/Button';
 import { Badge } from '../../design-system/Badge';
+import { Modal } from '../../design-system/Modal';
+import { useTheme } from '../../contexts/ThemeContext';
+import { PlannerService } from '../../services/plannerService';
 import { StudyCharts } from './StudyCharts';
 import { StreakCalendarModal } from './StreakCalendarModal';
 import { EmptyContestState } from '../common/EmptyContestState';
@@ -66,7 +70,102 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onCompleteRevisao,
   onRetry,
 }) => {
+  const { palette } = useTheme();
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Identificação do concurso ativo para persistência de metas
+  const activeConcursoId = useMemo(() => {
+    return concursos.find(c => c.active)?.id || 
+      concursos.find(c => c.id === user.targetConcursoId)?.id || 
+      concursos[0]?.id || 'default';
+  }, [concursos, user.targetConcursoId]);
+
+  // Metas semanais persistidas no localStorage por concurso (padrão: 12h e 500 questões)
+  const [weeklyGoals, setWeeklyGoals] = useState<{ hours: number; questions: number }>(() => {
+    try {
+      const activeId = concursos.find(c => c.active)?.id || 
+        concursos.find(c => c.id === user.targetConcursoId)?.id || 
+        concursos[0]?.id || 'default';
+      const saved = localStorage.getItem(`gabarita_metas_semanais_${activeId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          hours: Number(parsed.hours) || 12,
+          questions: Number(parsed.questions) || 500,
+        };
+      }
+    } catch {
+      // fallback padrão
+    }
+    return { hours: 12, questions: 500 };
+  });
+
+  const [modalHours, setModalHours] = useState<string>(() => String(weeklyGoals.hours));
+  const [modalQuestions, setModalQuestions] = useState<string>(() => String(weeklyGoals.questions));
+
+  // Sincroniza metas quando o concurso ativo mudar
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`gabarita_metas_semanais_${activeConcursoId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const next = {
+          hours: Number(parsed.hours) || 12,
+          questions: Number(parsed.questions) || 500,
+        };
+        setWeeklyGoals(next);
+        setModalHours(String(next.hours));
+        setModalQuestions(String(next.questions));
+        return;
+      }
+    } catch {
+      // ignore
+    }
+    setWeeklyGoals({ hours: 12, questions: 500 });
+    setModalHours('12');
+    setModalQuestions('500');
+  }, [activeConcursoId]);
+
+  // Cálculo dinâmico das horas e questões realizadas na semana atual (iniciando na segunda-feira)
+  const { minutosSemana, questoesSemana } = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + diffToMonday);
+    const mondayStr = PlannerService.formatLocalDate(monday);
+
+    let mins = 0;
+    let questions = 0;
+
+    sessoes.forEach((s) => {
+      const sDate = s.completedAt ? s.completedAt.split('T')[0] : (s.createdAt ? s.createdAt.split('T')[0] : '');
+      if (sDate >= mondayStr) {
+        mins += s.durationMinutes || 0;
+        questions += s.questionsAttempted || 0;
+      }
+    });
+
+    try {
+      const rawBlocos = localStorage.getItem('gabarita_blocos_questoes');
+      if (rawBlocos) {
+        const blocos = JSON.parse(rawBlocos);
+        if (Array.isArray(blocos)) {
+          blocos.forEach((b: any) => {
+            const bDate = b.date || (b.createdAt ? b.createdAt.split('T')[0] : '');
+            if (bDate >= mondayStr) {
+              questions += Number(b.totalQuestions) || 0;
+            }
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return { minutosSemana: mins, questoesSemana: questions };
+  }, [sessoes]);
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-7xl mx-auto animate-pulse">
@@ -147,6 +246,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const nextDisciplina = nextAssuntoToStudy 
     ? disciplinas.find(d => d.id === nextAssuntoToStudy.disciplinaId) 
     : disciplinas[0];
+
+  const formatHorasMinutos = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = Math.floor(totalMinutes % 60);
+    return `${h}h${m.toString().padStart(2, '0')}min`;
+  };
+
+  const percentHoras = weeklyGoals.hours > 0 
+    ? Math.min(100, Math.round((minutosSemana / (weeklyGoals.hours * 60)) * 100)) 
+    : 0;
+  const percentQuestoes = weeklyGoals.questions > 0 
+    ? Math.min(100, Math.round((questoesSemana / weeklyGoals.questions) * 100)) 
+    : 0;
+
+  const handleOpenEditModal = () => {
+    setModalHours(String(weeklyGoals.hours));
+    setModalQuestions(String(weeklyGoals.questions));
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setModalHours(String(weeklyGoals.hours));
+    setModalQuestions(String(weeklyGoals.questions));
+    setIsEditModalOpen(false);
+  };
+
+  const handleSaveMetas = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numHours = Math.max(1, Number(modalHours) || 12);
+    const numQuestions = Math.max(1, Number(modalQuestions) || 500);
+    const newGoals = { hours: numHours, questions: numQuestions };
+    setWeeklyGoals(newGoals);
+    try {
+      localStorage.setItem(`gabarita_metas_semanais_${activeConcursoId}`, JSON.stringify(newGoals));
+    } catch (err) {
+      console.warn('Erro ao salvar metas semanais no localStorage:', err);
+    }
+    setIsEditModalOpen(false);
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -406,32 +544,75 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader
-              title="Metas de Estudo"
-              action={
-                <Button size="sm" variant="ghost" onClick={() => onNavigateTab('metas')} rightIcon={<ChevronRight className="w-3.5 h-3.5" />}>
-                  Ver Metas
-                </Button>
-              }
-            />
-            <CardBody className="p-4 sm:p-5 space-y-4">
-              {metas.slice(0, 3).map((meta) => {
-                const percent = Math.min(100, Math.round((meta.currentValue / meta.targetValue) * 100));
-                return (
-                  <div key={meta.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">{meta.title}</h4>
-                      <Badge variant={percent >= 100 ? 'emerald' : 'amber'} size="sm">{percent}%</Badge>
-                    </div>
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${percent}%` }} />
-                    </div>
+          <div className="bg-white dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 shadow-sm rounded-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                METAS DE ESTUDO SEMANAL
+              </h3>
+              <button
+                type="button"
+                onClick={handleOpenEditModal}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Editar Metas Semanais"
+                aria-label="Editar Metas Semanais"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5 space-y-5">
+              {/* Barra 1: Horas de Estudo */}
+              <div className="space-y-1.5">
+                <div className="flex items-center text-xs">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">
+                    {formatHorasMinutos(minutosSemana)} / {formatHorasMinutos(weeklyGoals.hours * 60)}
+                  </span>
+                  <span className="font-bold text-xs ml-1" style={{ color: palette.primary }}>
+                    • {percentHoras}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800/90 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${percentHoras}%`,
+                        backgroundColor: palette.primary,
+                      }}
+                    />
                   </div>
-                );
-              })}
-            </CardBody>
-          </Card>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold text-xs shrink-0 min-w-[100px] text-right">
+                    Horas de Estudo
+                  </span>
+                </div>
+              </div>
+
+              {/* Barra 2: Questões */}
+              <div className="space-y-1.5">
+                <div className="flex items-center text-xs">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">
+                    {questoesSemana} / {weeklyGoals.questions}
+                  </span>
+                  <span className="font-bold text-xs ml-1" style={{ color: palette.primary }}>
+                    • {percentQuestoes}%
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800/90 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${percentQuestoes}%`,
+                        backgroundColor: palette.primary,
+                      }}
+                    />
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-300 font-semibold text-xs shrink-0 min-w-[100px] text-right">
+                    Questões
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -442,6 +623,84 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         streakDays={user.streakDays}
         sessoes={sessoes}
       />
+
+      {/* Modal de Configuração de Metas Semanais (Sem sair da página) */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        title="Configurar Metas de Estudo Semanal"
+        description="Defina suas metas de horas líquidas e questões para a semana atual."
+        maxWidth="md"
+      >
+        <form onSubmit={handleSaveMetas} className="space-y-4 pt-2">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              Meta Semanal de Horas
+            </label>
+            <div className="relative">
+              <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="number"
+                min="1"
+                max="168"
+                step="1"
+                value={modalHours}
+                onChange={(e) => setModalHours(e.target.value)}
+                placeholder="12"
+                required
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Meta de Horas Líquidas para a Semana
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              Meta Semanal de Questões
+            </label>
+            <div className="relative">
+              <Target className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="number"
+                min="1"
+                max="5000"
+                step="1"
+                value={modalQuestions}
+                onChange={(e) => setModalQuestions(e.target.value)}
+                placeholder="500"
+                required
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Total de questões para resolver na semana
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={handleCloseEditModal}
+            >
+              Cancelar
+            </Button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all shadow-md hover:brightness-110 active:scale-95 cursor-pointer"
+              style={{
+                backgroundColor: palette.primary,
+                boxShadow: `0 0 12px ${palette.glowColor || 'rgba(16, 185, 129, 0.4)'}`
+              }}
+            >
+              Salvar Metas
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

@@ -2602,31 +2602,61 @@ export class DatabaseService {
 
   // --- STUDY CYCLE ---
   static async getStudyCycle(concursoId?: string): Promise<StudyCycle> {
-    if (concursoId) {
-      const savedForConcurso = loadStored<StudyCycle | null>(`gabarita_study_cycle_${concursoId}`, null);
-      if (savedForConcurso && savedForConcurso.concursoId === concursoId) {
+    const targetId = concursoId || (await this.getActiveConcurso())?.id;
+    if (targetId) {
+      // 1. Tentar ler da chave oficial gabarita_ciclo_estudos_${targetId}
+      try {
+        const raw = localStorage.getItem(`gabarita_ciclo_estudos_${targetId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length > 0) {
+            saveStored(STORAGE_KEYS.STUDY_CYCLE, parsed);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao ler gabarita_ciclo_estudos_' + targetId, e);
+      }
+
+      // 2. Tentar ler de gabarita_study_cycle_${targetId}
+      const savedForConcurso = loadStored<StudyCycle | null>(`gabarita_study_cycle_${targetId}`, null);
+      if (savedForConcurso && savedForConcurso.concursoId === targetId && savedForConcurso.blocks && savedForConcurso.blocks.length > 0) {
         saveStored(STORAGE_KEYS.STUDY_CYCLE, savedForConcurso);
+        try {
+          localStorage.setItem(`gabarita_ciclo_estudos_${targetId}`, JSON.stringify(savedForConcurso));
+        } catch {}
         return savedForConcurso;
       }
     }
+
     const current = loadStored<StudyCycle>(STORAGE_KEYS.STUDY_CYCLE, INITIAL_STUDY_CYCLE);
-    if (concursoId && current.concursoId === concursoId) {
+    if (targetId && current.concursoId === targetId && current.blocks && current.blocks.length > 0) {
       return current;
     }
-    if (concursoId && current.concursoId !== concursoId) {
-      const savedForConcurso = loadStored<StudyCycle | null>(`gabarita_study_cycle_${concursoId}`, null);
-      if (savedForConcurso && savedForConcurso.concursoId === concursoId) {
-        saveStored(STORAGE_KEYS.STUDY_CYCLE, savedForConcurso);
-        return savedForConcurso;
-      }
-      return this.recalculateStudyCycle(concursoId);
-    }
-    return current;
+
+    return {
+      id: `cycle_${targetId || 'empty'}`,
+      userId: 'user_demo_01',
+      concursoId: targetId || '',
+      concursoTitle: 'Ciclo de Estudos',
+      currentBlockIndex: 0,
+      completedCyclesCount: 0,
+      totalCycleMinutes: 0,
+      blocks: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   static async saveStudyCycle(cycle: StudyCycle): Promise<StudyCycle> {
     saveStored(STORAGE_KEYS.STUDY_CYCLE, cycle);
     if (cycle.concursoId) {
+      try {
+        localStorage.setItem(`gabarita_ciclo_estudos_${cycle.concursoId}`, JSON.stringify(cycle));
+        localStorage.setItem(`gabarita_study_cycle_${cycle.concursoId}`, JSON.stringify(cycle));
+      } catch (err) {
+        console.warn('Erro ao salvar ciclo no localStorage:', err);
+      }
       saveStored(`gabarita_study_cycle_${cycle.concursoId}`, cycle);
     }
     if (isFirebaseInitialized && db) {
@@ -2784,6 +2814,14 @@ export class DatabaseService {
 
   static async removeStudyCycle(): Promise<StudyCycle> {
     const cycle = await this.getStudyCycle();
+    if (cycle.concursoId) {
+      try {
+        localStorage.removeItem(`gabarita_ciclo_estudos_${cycle.concursoId}`);
+        localStorage.removeItem(`gabarita_study_cycle_${cycle.concursoId}`);
+      } catch (err) {
+        console.warn('Erro ao remover ciclo do concurso no localStorage:', err);
+      }
+    }
     const clearedCycle: StudyCycle = {
       ...cycle,
       currentBlockIndex: 0,

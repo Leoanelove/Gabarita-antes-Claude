@@ -42,7 +42,7 @@ interface CalendarViewProps {
   onRescheduleSession: (sessionId: string, newDate: string, reason?: string) => Promise<void>;
   onBatchRescheduleOverdue: (targetDate?: string, mode?: 'today' | 'spread') => Promise<void>;
   onToggleSessionStatus: (sessionId: string, status: PlanSessionStatus) => Promise<void>;
-  onOpenStudyTimer: (disciplinaId?: string, assuntoId?: string) => void;
+  onOpenStudyTimer: (disciplinaId?: string, assuntoId?: string, durationMinutes?: number | string) => void;
   onOpenEditSession: (session: PlannedSession) => void;
   onOpenAddSession: (presetDate?: string) => void;
   onDeleteSession: (sessionId: string) => Promise<void>;
@@ -386,7 +386,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <Button
                       size="sm"
                       variant={isDone ? "outline" : "primary"}
-                      onClick={() => onOpenStudyTimer(session.disciplinaId, session.assuntoId)}
+                      onClick={() => onOpenStudyTimer(session.disciplinaId, session.assuntoId, session.durationMinutes)}
                       leftIcon={<Play className="w-3.5 h-3.5 fill-current" />}
                       className="cursor-pointer"
                     >
