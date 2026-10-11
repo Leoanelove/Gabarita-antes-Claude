@@ -15,7 +15,9 @@ import {
   CalendarDays, 
   Sliders, 
   History, 
-  X 
+  X,
+  RotateCw,
+  ChevronRight
 } from 'lucide-react';
 import { 
   StudyPlan, 
@@ -43,6 +45,7 @@ import { CriarCicloModal } from './CriarCicloModal';
 import { CriarCronogramaModal } from './CriarCronogramaModal';
 import { MetodoEstudoModal } from './MetodoEstudoModal';
 import { EmptyContestState } from '../common/EmptyContestState';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface PlanoViewProps {
   plan?: StudyPlan | null;
@@ -99,6 +102,7 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
   onNavigateTab,
   onSaveCycle,
 }) => {
+  const { palette } = useTheme();
   const effectiveActiveConcursoId = useMemo(() => {
     return activeConcursoId || concursos.find(c => c.active)?.id || concursos[0]?.id || '';
   }, [activeConcursoId, concursos]);
@@ -407,53 +411,156 @@ export const PlanoView: React.FC<PlanoViewProps> = ({
         </div>
       )}
 
-      {/* Abas Internas Superiores: Ciclo de Estudos vs Cronograma */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('ciclo');
-              if (onSwitchMethod) onSwitchMethod('ciclo');
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'ciclo'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Repeat className="w-4 h-4 text-[var(--primary-color)] dark:text-[var(--primary-text-dark)]" />
-            <span>Ciclo de Estudos</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('cronograma');
-              if (onSwitchMethod) onSwitchMethod('cronograma');
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'cronograma'
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <CalendarClock className="w-4 h-4 text-[var(--primary-color)] dark:text-[var(--primary-text-dark)]" />
-            <span>Cronograma</span>
-          </button>
+      {/* Barra Superior com Título de Seção e Botão Replanejar Método */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+            Formato de Estudo
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Selecione entre rotação contínua proporcional ou grade semanal fixa
+          </p>
         </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-center">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsMethodModalOpen(true)}
-            leftIcon={<Sliders className="w-4 h-4 text-[var(--primary-color)] dark:text-[var(--primary-text-dark)]" />}
-            className="cursor-pointer font-semibold border-[var(--primary-light-border)] hover:bg-[var(--primary-light)] text-slate-700 dark:text-slate-200"
+            leftIcon={<Sliders className="w-4 h-4" style={{ color: palette.primary }} />}
+            className="cursor-pointer font-semibold border-slate-300 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 shadow-xs"
           >
             Replanejar Método
           </Button>
         </div>
+      </div>
+
+      {/* Dois Grandes Cards Seletores (Banners de Modo) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Card 1: CICLO DE ESTUDOS */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('ciclo');
+            if (onSwitchMethod) onSwitchMethod('ciclo');
+          }}
+          className={`card-seletor-modo relative overflow-hidden rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex items-center justify-between gap-4 group ${
+            activeTab === 'ciclo'
+              ? 'bg-gradient-to-r from-primary via-primary-600 to-primary-700 text-white shadow-lg shadow-primary/20 border border-transparent'
+              : 'bg-white hover:bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 shadow-xs text-slate-800 dark:text-slate-200'
+          }`}
+          style={activeTab === 'ciclo' ? {
+            background: `linear-gradient(135deg, ${palette.primaryHover || palette.primary} 0%, ${palette.primary} 50%, ${palette.secondary || palette.primary} 100%)`,
+            boxShadow: `0 10px 25px -5px ${palette.glowColor || `${palette.primary}40`}`
+          } : undefined}
+        >
+          {/* Efeito decorativo de fundo translúcido para o card ativo */}
+          {activeTab === 'ciclo' && (
+            <div className="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-white/10 pointer-events-none blur-[1px]" />
+          )}
+
+          <div className="relative z-10 flex items-center gap-4 min-w-0">
+            {/* Container do Ícone à esquerda */}
+            <div 
+              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 card-seletor-icon ${
+                activeTab === 'ciclo'
+                  ? 'bg-white/20 backdrop-blur-sm border border-white/30 card-seletor-icon-active'
+                  : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {activeTab === 'ciclo' ? (
+                <RotateCw className="w-6 h-6 text-white stroke-[2.2]" />
+              ) : (
+                <RotateCw className="text-slate-500 dark:text-slate-400 w-6 h-6 stroke-[2]" />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <h3 className={`text-sm sm:text-base font-bold tracking-wide ${
+                activeTab === 'ciclo' ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+              }`}>
+                CICLO DE ESTUDOS
+              </h3>
+              <p className={`text-xs font-medium leading-relaxed mt-0.5 ${
+                activeTab === 'ciclo' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+              }`}>
+                Estude de forma inteligente, com base no seu desempenho e nas prioridades.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 shrink-0 pl-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:translate-x-0.5 ${
+              activeTab === 'ciclo' 
+                ? 'bg-white/20 border border-white/30 text-white' 
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+            }`}>
+              <ChevronRight className="w-5 h-5" />
+            </div>
+          </div>
+        </button>
+
+        {/* Card 2: CRONOGRAMA */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('cronograma');
+            if (onSwitchMethod) onSwitchMethod('cronograma');
+          }}
+          className={`card-seletor-modo relative overflow-hidden rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 cursor-pointer flex items-center justify-between gap-4 group ${
+            activeTab === 'cronograma'
+              ? 'bg-gradient-to-r from-primary via-primary-600 to-primary-700 text-white shadow-lg shadow-primary/20 border border-transparent'
+              : 'bg-white hover:bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 shadow-xs text-slate-800 dark:text-slate-200'
+          }`}
+          style={activeTab === 'cronograma' ? {
+            background: `linear-gradient(135deg, ${palette.primaryHover || palette.primary} 0%, ${palette.primary} 50%, ${palette.secondary || palette.primary} 100%)`,
+            boxShadow: `0 10px 25px -5px ${palette.glowColor || `${palette.primary}40`}`
+          } : undefined}
+        >
+          {/* Efeito decorativo de fundo translúcido para o card ativo */}
+          {activeTab === 'cronograma' && (
+            <div className="absolute -right-4 -bottom-4 w-28 h-28 rounded-full bg-white/10 pointer-events-none blur-[1px]" />
+          )}
+
+          <div className="relative z-10 flex items-center gap-4 min-w-0">
+            {/* Container do Ícone à esquerda */}
+            <div 
+              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 card-seletor-icon ${
+                activeTab === 'cronograma'
+                  ? 'bg-white/20 backdrop-blur-sm border border-white/30 card-seletor-icon-active'
+                  : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {activeTab === 'cronograma' ? (
+                <Calendar className="w-6 h-6 text-white stroke-[2.2]" />
+              ) : (
+                <Calendar className="text-slate-500 dark:text-slate-400 w-6 h-6 stroke-[2]" />
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <h3 className={`text-sm sm:text-base font-bold tracking-wide ${
+                activeTab === 'cronograma' ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+              }`}>
+                CRONOGRAMA
+              </h3>
+              <p className={`text-xs font-medium leading-relaxed mt-0.5 ${
+                activeTab === 'cronograma' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+              }`}>
+                Veja seu plano de estudos, organize seu tempo e mantenha o foco.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 shrink-0 pl-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all group-hover:translate-x-0.5 ${
+              activeTab === 'cronograma' 
+                ? 'bg-white/20 border border-white/30 text-white' 
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+            }`}>
+              <ChevronRight className="w-5 h-5" />
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Conteúdo da Aba Ativa */}

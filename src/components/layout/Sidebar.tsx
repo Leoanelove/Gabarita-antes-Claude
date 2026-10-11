@@ -314,11 +314,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 {item.badge && (
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    className={
                       isActive
-                        ? 'bg-white/20 text-white'
-                        : 'sidebar-badge'
-                    }`}
+                        ? 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white'
+                        : item.id === 'revisoes'
+                        ? 'px-2 py-0.5 text-[11px] font-bold rounded-full bg-primary/15 text-primary-800 dark:text-primary-300 border border-primary/25'
+                        : item.id === 'ai_assistant'
+                        ? 'px-2 py-0.5 text-[11px] font-bold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                        : 'text-[10px] font-bold px-1.5 py-0.5 rounded-full sidebar-badge'
+                    }
                   >
                     {item.badge}
                   </span>

@@ -346,7 +346,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   leftIcon={<Play className="w-4 h-4 fill-current" />}
                   className="shadow-md"
                 >
-                  Iniciar Estudo
+                  Adicionar Estudo
                 </Button>
                 <Button
                   variant="outline"
@@ -383,7 +383,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Horas Estudadas</p>
               <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">{totalStudyHours}h</h3>
-              <p className="card-metric-hours-text text-[11px] font-medium mt-0.5">{sessoes.length} sessões</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{sessoes.length} sessões</p>
             </div>
             <div className="card-metric-hours-icon-bg w-12 h-12 rounded-xl flex items-center justify-center">
               <Clock className="w-6 h-6" />
@@ -395,7 +395,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Questões & Acertos</p>
               <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">{globalAccuracyRate}%</h3>
-              <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium mt-0.5">{totalQuestionsCorrect}/{totalQuestionsAttempted} acertos</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{totalQuestionsCorrect}/{totalQuestionsAttempted} acertos</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500">
               <CheckCircle2 className="w-6 h-6" />
@@ -422,7 +422,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 font-semibold">Ver histórico</span>
               </div>
               <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">{user.streakDays} dias</h3>
-              <p className="text-[11px] text-orange-600 dark:text-orange-400 font-medium mt-0.5">Ritmo contínuo • Clique para abrir</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Ritmo contínuo • Clique para abrir</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
               <Flame className="w-6 h-6" />
@@ -434,7 +434,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div>
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Revisões Pendentes</p>
               <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 font-mono">{pendingRevisoes.length}</h3>
-              <p className="text-[11px] text-purple-600 dark:text-purple-400 font-medium mt-0.5">Para hoje</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Para hoje</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
               <Award className="w-6 h-6" />
@@ -476,10 +476,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <CardBody className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="proximo-estudo-tag text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
+                    <span className="px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wider rounded-lg bg-primary/20 text-primary-900 dark:text-primary-200 border border-primary/30 proximo-estudo-tag">
                       Próximo Estudo Recomendado
                     </span>
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase">
                       {nextDisciplina.name}
                     </span>
                   </div>
@@ -562,12 +562,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="p-4 sm:p-5 space-y-5">
               {/* Barra 1: Horas de Estudo */}
               <div className="space-y-1.5">
-                <div className="flex items-center text-xs">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">
-                    {formatHorasMinutos(minutosSemana)} / {formatHorasMinutos(weeklyGoals.hours * 60)}
-                  </span>
-                  <span className="font-bold text-xs ml-1" style={{ color: palette.primary }}>
-                    • {percentHoras}%
+                <div className="flex items-center text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <span>
+                    {formatHorasMinutos(minutosSemana)} / {formatHorasMinutos(weeklyGoals.hours * 60)} • {percentHoras}%
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -588,12 +585,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {/* Barra 2: Questões */}
               <div className="space-y-1.5">
-                <div className="flex items-center text-xs">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">
-                    {questoesSemana} / {weeklyGoals.questions}
-                  </span>
-                  <span className="font-bold text-xs ml-1" style={{ color: palette.primary }}>
-                    • {percentQuestoes}%
+                <div className="flex items-center text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <span>
+                    {questoesSemana} / {weeklyGoals.questions} • {percentQuestoes}%
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

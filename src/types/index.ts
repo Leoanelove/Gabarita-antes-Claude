@@ -166,6 +166,9 @@ export interface Assunto {
   totalQuestionsSolved: number;
   correctQuestionsSolved: number;
   accuracyRate: number;
+  questoesCertas?: number;
+  questoesErradas?: number;
+  questoesTotal?: number;
   completed: boolean;
   link?: string;
   notes?: string;

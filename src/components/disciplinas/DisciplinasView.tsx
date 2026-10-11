@@ -13,6 +13,9 @@ import {
   ListTree,
   ChevronDown,
   Check,
+  X,
+  ClipboardList,
+  Percent,
   Target,
   HelpCircle,
   Layers,
@@ -185,6 +188,14 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   const [topicStatus, setTopicStatus] = useState<TopicStatus>('nao_iniciado');
   const [topicNotes, setTopicNotes] = useState('');
   const [topicLink, setTopicLink] = useState('');
+  const [topicCorrectQuestions, setTopicCorrectQuestions] = useState<number>(0);
+  const [topicWrongQuestions, setTopicWrongQuestions] = useState<number>(0);
+
+  // Modal de Registro Rápido de Questões (Estilo "Estudei")
+  const [isQuestionsModalOpen, setIsQuestionsModalOpen] = useState(false);
+  const [targetAssuntoForQuestions, setTargetAssuntoForQuestions] = useState<Assunto | null>(null);
+  const [qCertasInput, setQCertasInput] = useState<number>(0);
+  const [qErradasInput, setQErradasInput] = useState<number>(0);
 
   // Link Modal state (Atalho para Banco de Questões)
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -208,9 +219,14 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
     const totalTopics = currentConcursoAssuntos.length;
     const dominados = currentConcursoAssuntos.filter(a => a.completed || a.status === 'dominado' || a.status === 'revisado').length;
     const progressPct = totalTopics > 0 ? Math.round((dominados / totalTopics) * 100) : 0;
-    const totalQuestions = currentConcursoAssuntos.reduce((acc, a) => acc + (a.totalQuestionsSolved || 0), 0);
-    const correctQuestions = currentConcursoAssuntos.reduce((acc, a) => acc + (a.correctQuestionsSolved || 0), 0);
-    const accuracyPct = totalQuestions > 0 ? Math.round((correctQuestions / totalQuestions) * 100) : 0;
+    
+    const totalCertas = currentConcursoAssuntos.reduce((acc, a) => acc + (Number(a.questoesCertas ?? a.correctQuestionsSolved ?? 0)), 0);
+    const totalErradas = currentConcursoAssuntos.reduce((acc, a) => {
+      const c = Number(a.questoesCertas ?? a.correctQuestionsSolved ?? 0);
+      return acc + Number(a.questoesErradas ?? Math.max(0, Number(a.questoesTotal ?? a.totalQuestionsSolved ?? 0) - c));
+    }, 0);
+    const totalQuestions = totalCertas + totalErradas;
+    const accuracyPct = totalQuestions > 0 ? Math.min(100, Math.round((totalCertas / totalQuestions) * 100)) : 0;
 
     return {
       totalTopics,
@@ -260,8 +276,8 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   // - Acerto > 50% e <= 75%: Amarela -> Solid: bg-amber-400 text-slate-950 font-black
   // - Acerto > 75% e <= 90%: Verde Claro -> Solid: bg-emerald-500 text-white
   // - Acerto > 90% e <= 100%: Verde Escuro + Ícone de Coroa (👑) -> Solid: bg-emerald-800 text-white
-  const getAccuracyConfig = (rate: number, total: number) => {
-    const hasData = (total > 0) || (rate > 0);
+  const getAccuracyConfig = (rawRate: number, total: number) => {
+    const hasData = (total > 0) || (rawRate > 0);
     if (!hasData) {
       return {
         rate: 0,
@@ -269,13 +285,14 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
         hasCrown: false,
         label: 'Sem dados',
         shortLabel: '—',
-        badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700/80 font-medium',
+        badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 font-medium metric-acerto-sem-dados',
         solidBadgeClass: 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold',
-        textClass: 'text-slate-500 dark:text-slate-400',
+        textClass: 'text-slate-500 dark:text-slate-400 metric-text-sem-dados',
         tier: 'sem_dados' as const,
       };
     }
 
+    const rate = Math.min(100, Math.max(0, rawRate));
     const formattedRate = Number.isInteger(rate) ? `${rate}%` : `${Number(rate.toFixed(1))}%`;
 
     // 1. Acerto <= 50%: Vermelha (indicando estado de alerta/atenção)
@@ -286,9 +303,9 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
         hasCrown: false,
         label: formattedRate,
         shortLabel: formattedRate,
-        badgeClass: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800/80 font-bold',
+        badgeClass: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 font-bold metric-acerto-alerta',
         solidBadgeClass: 'bg-red-600 text-white font-bold',
-        textClass: 'text-red-600 dark:text-red-400',
+        textClass: 'text-red-600 dark:text-red-400 metric-text-alerta',
         tier: 'alerta' as const,
       };
     }
@@ -300,13 +317,13 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
         hasCrown: false,
         label: formattedRate,
         shortLabel: formattedRate,
-        badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800/80 font-bold',
+        badgeClass: 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 font-bold metric-acerto-medio',
         solidBadgeClass: 'bg-amber-400 text-slate-950 font-black',
-        textClass: 'text-amber-600 dark:text-amber-400',
+        textClass: 'text-amber-600 dark:text-amber-400 metric-text-medio',
         tier: 'medio' as const,
       };
     }
-    // 3. Acerto > 75% e <= 90%: Verde Claro (classes absolutas green- para imunidade contra skins de tema)
+    // 3. Acerto > 75% e <= 90%: Verde Claro
     if (rate <= 90) {
       return {
         rate,
@@ -314,22 +331,22 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
         hasCrown: false,
         label: formattedRate,
         shortLabel: formattedRate,
-        badgeClass: 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-300 dark:border-green-600/70 font-bold',
-        solidBadgeClass: 'bg-green-500 text-white font-bold',
-        textClass: 'text-green-600 dark:text-green-400',
+        badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 font-bold metric-acerto-bom',
+        solidBadgeClass: 'bg-emerald-500 text-white font-bold',
+        textClass: 'text-emerald-600 dark:text-emerald-400 metric-text-bom',
         tier: 'bom' as const,
       };
     }
-    // 4. Acerto > 90% e <= 100%: Verde Escuro + Coroa (👑)
+    // 4. Acerto >= 91%: Verde Escuro + Coroa (👑)
     return {
       rate,
       hasData: true,
       hasCrown: true,
       label: formattedRate,
       shortLabel: formattedRate,
-      badgeClass: 'bg-emerald-900/20 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-600/50 dark:border-emerald-500/50 font-black shadow-xs ring-1 ring-emerald-500/30',
+      badgeClass: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-400 dark:border-emerald-600 font-bold metric-acerto-excelente',
       solidBadgeClass: 'bg-emerald-800 text-white font-black',
-      textClass: 'text-emerald-800 dark:text-emerald-300',
+      textClass: 'text-emerald-800 dark:text-emerald-300 metric-text-excelente',
       tier: 'excelente' as const,
     };
   };
@@ -362,6 +379,80 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
     } catch (err) {
       console.error(err);
       showFeedback('error', 'Erro ao salvar link do tópico.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Abrir Modal de Registro de Questões (Estilo "Estudei")
+  const handleOpenQuestionsModal = (assunto: Assunto) => {
+    setTargetAssuntoForQuestions(assunto);
+    const certas = assunto.questoesCertas ?? assunto.correctQuestionsSolved ?? 0;
+    const total = assunto.questoesTotal ?? assunto.totalQuestionsSolved ?? 0;
+    const erradas = assunto.questoesErradas ?? Math.max(0, total - certas);
+    setQCertasInput(certas);
+    setQErradasInput(erradas);
+    setIsQuestionsModalOpen(true);
+  };
+
+  // Salvar Questões (Certas e Erradas)
+  const handleSaveQuestions = async () => {
+    if (!targetAssuntoForQuestions) return;
+    setIsSubmitting(true);
+    try {
+      const certas = Math.max(0, Number(qCertasInput) || 0);
+      const erradas = Math.max(0, Number(qErradasInput) || 0);
+      const total = certas + erradas;
+      const accuracyRate = total > 0 ? Math.min(100, Math.round((certas / total) * 100)) : 0;
+
+      const updatedFields: Partial<Assunto> = {
+        correctQuestionsSolved: certas,
+        totalQuestionsSolved: total,
+        accuracyRate,
+        questoesCertas: certas,
+        questoesErradas: erradas,
+        questoesTotal: total,
+      };
+
+      const assuntoId = targetAssuntoForQuestions.id;
+      await onUpdateAssunto(assuntoId, updatedFields);
+
+      // Atualização otimista no estado local
+      setAssuntos(prev => prev.map(a => a.id === assuntoId ? { ...a, ...updatedFields } : a));
+
+      // Sincronização direta no localStorage
+      try {
+        const rawAssuntos = localStorage.getItem('gabarita_assuntos');
+        if (rawAssuntos) {
+          const stored: Assunto[] = JSON.parse(rawAssuntos);
+          const updated = stored.map(a => a.id === assuntoId ? { ...a, ...updatedFields } : a);
+          localStorage.setItem('gabarita_assuntos', JSON.stringify(updated));
+        }
+
+        const rawActive = localStorage.getItem('gabarita_active_contest');
+        if (rawActive) {
+          const bundle = JSON.parse(rawActive);
+          if (bundle?.disciplinas) {
+            bundle.disciplinas = bundle.disciplinas.map((d: any) => {
+              if (d.assuntos) {
+                d.assuntos = d.assuntos.map((a: any) => a.id === assuntoId ? { ...a, ...updatedFields } : a);
+              }
+              return d;
+            });
+            bundle.updatedAt = new Date().toISOString();
+            localStorage.setItem('gabarita_active_contest', JSON.stringify(bundle));
+          }
+        }
+      } catch (storageErr) {
+        console.warn('Erro ao salvar questões no localStorage:', storageErr);
+      }
+
+      setIsQuestionsModalOpen(false);
+      setTargetAssuntoForQuestions(null);
+      showFeedback('success', 'Questões atualizadas com sucesso!');
+    } catch (err) {
+      console.error(err);
+      showFeedback('error', 'Erro ao salvar questões do tópico.');
     } finally {
       setIsSubmitting(false);
     }
@@ -567,6 +658,8 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
   const handleCloseAssuntoModal = () => {
     setIsAddAssuntoOpen(false);
     setEditingAssunto(null);
+    setTopicCorrectQuestions(0);
+    setTopicWrongQuestions(0);
   };
 
   const handleSaveAssunto = async (e: React.FormEvent) => {
@@ -577,6 +670,11 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
     try {
       if (editingAssunto) {
         const assuntoId = editingAssunto.id;
+        const certas = Math.max(0, Number(topicCorrectQuestions) || 0);
+        const erradas = Math.max(0, Number(topicWrongQuestions) || 0);
+        const total = certas + erradas;
+        const accuracyRate = total > 0 ? Math.min(100, Math.round((certas / total) * 100)) : 0;
+
         const updatedFields = {
           disciplinaId: discId,
           name: topicName.trim(),
@@ -586,6 +684,12 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
           notes: topicNotes,
           link: topicLink.trim() || undefined,
           completed: topicStatus === 'dominado' || topicStatus === 'revisado',
+          correctQuestionsSolved: certas,
+          totalQuestionsSolved: total,
+          accuracyRate,
+          questoesCertas: certas,
+          questoesErradas: erradas,
+          questoesTotal: total,
         };
 
         await onUpdateAssunto(assuntoId, updatedFields);
@@ -887,24 +991,101 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
         </div>
 
         {/* Legenda de Gamificação do Percentual de Acerto */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-          <span className="font-semibold text-slate-600 dark:text-slate-300">Faixas de Acerto:</span>
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 font-bold border border-red-500/20">
-              <span className="w-2 h-2 rounded-full bg-red-600 dark:bg-red-400 shrink-0" />
-              <span>&le;50% Alerta</span>
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2 flex-wrap py-2">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1 select-none">
+            Faixas de Acerto:
+          </span>
+
+          {/* 1. ≤50% Alerta */}
+          <div 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm transition-all legend-pill-alerta-box"
+            style={{ 
+              backgroundColor: '#FEF2F2', 
+              border: '1px solid #FECACA' 
+            }}
+          >
+            <span 
+              className="w-3.5 h-3.5 rounded-full shrink-0"
+              style={{ 
+                background: 'radial-gradient(circle at 35% 35%, #F87171, #DC2626 65%, #991B1B 100%)',
+                boxShadow: 'inset -1px -1px 2px rgba(0,0,0,0.35), 0 1px 2px rgba(220,38,38,0.4)'
+              }} 
+            />
+            <span 
+              className="text-xs font-bold whitespace-nowrap legend-pill-alerta-text"
+              style={{ color: '#B91C1C' }}
+            >
+              ≤50% Alerta
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
-              <span className="w-2 h-2 rounded-full bg-amber-600 dark:bg-amber-400 shrink-0" />
-              <span>51-75% Médio</span>
+          </div>
+
+          {/* 2. 51-75% Médio */}
+          <div 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm transition-all legend-pill-medio-box"
+            style={{ 
+              backgroundColor: '#FFFBEB', 
+              border: '1px solid #FDE68A' 
+            }}
+          >
+            <span 
+              className="w-3.5 h-3.5 rounded-full shrink-0"
+              style={{ 
+                background: 'radial-gradient(circle at 35% 35%, #FBBF24, #D97706 65%, #92400E 100%)',
+                boxShadow: 'inset -1px -1px 2px rgba(0,0,0,0.35), 0 1px 2px rgba(217,119,6,0.4)'
+              }} 
+            />
+            <span 
+              className="text-xs font-bold whitespace-nowrap legend-pill-medio-text"
+              style={{ color: '#B45309' }}
+            >
+              51-75% Médio
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-green-500/15 text-green-600 dark:text-green-400 font-bold border border-green-400/30">
-              <span className="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400 shrink-0" />
-              <span>76-90% Bom</span>
+          </div>
+
+          {/* 3. 76-90% Bom */}
+          <div 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm transition-all legend-pill-bom-box"
+            style={{ 
+              backgroundColor: '#ECFDF5', 
+              border: '1px solid #A7F3D0' 
+            }}
+          >
+            <span 
+              className="w-3.5 h-3.5 rounded-full shrink-0"
+              style={{ 
+                background: 'radial-gradient(circle at 35% 35%, #6EE7B7, #10B981 65%, #047857 100%)',
+                boxShadow: 'inset -1px -1px 2px rgba(0,0,0,0.35), 0 1px 2px rgba(5,150,105,0.4)'
+              }} 
+            />
+            <span 
+              className="text-xs font-bold whitespace-nowrap legend-pill-bom-text"
+              style={{ color: '#047857' }}
+            >
+              76-90% Bom
             </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-900/20 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 font-black border border-emerald-600/40">
-              <Crown className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 fill-amber-400/80 shrink-0" />
-              <span>&gt;90% Excelente</span>
+          </div>
+
+          {/* 4. >90% Excelente */}
+          <div 
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm transition-all legend-pill-excelente-box"
+            style={{ 
+              backgroundColor: '#D1FAE5', 
+              border: '1px solid #6EE7B7' 
+            }}
+          >
+            <Crown 
+              className="w-4 h-4 shrink-0 drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)] legend-pill-crown"
+              style={{ 
+                color: '#D97706', 
+                fill: '#FBBF24',
+                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.15))'
+              }}
+            />
+            <span 
+              className="text-xs font-extrabold whitespace-nowrap legend-pill-excelente-text"
+              style={{ color: '#064E3B' }}
+            >
+              &gt;90% Excelente
             </span>
           </div>
         </div>
@@ -992,10 +1173,14 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
             const totalTopicsCount = validAssuntos.length;
             const completedTopicsCount = validAssuntos.filter(a => a.completed || a.status === 'dominado' || a.status === 'revisado').length;
             const progressPct = totalTopicsCount > 0 ? Math.round((completedTopicsCount / totalTopicsCount) * 100) : 0;
-            const totalQuestionsSolved = validAssuntos.reduce((acc, a) => acc + (a.totalQuestionsSolved || 0), 0);
-            const correctQuestionsSolved = validAssuntos.reduce((acc, a) => acc + (a.correctQuestionsSolved || 0), 0);
-            const accuracyPct = totalQuestionsSolved > 0 ? Math.round((correctQuestionsSolved / totalQuestionsSolved) * 100) : 0;
-            const accuracyStyle = getAccuracyConfig(accuracyPct, totalQuestionsSolved);
+            
+            const discCertas = validAssuntos.reduce((acc, a) => acc + (Number(a.questoesCertas ?? a.correctQuestionsSolved ?? 0)), 0);
+            const discErradas = validAssuntos.reduce((acc, a) => {
+              const c = Number(a.questoesCertas ?? a.correctQuestionsSolved ?? 0);
+              return acc + Number(a.questoesErradas ?? Math.max(0, Number(a.questoesTotal ?? a.totalQuestionsSolved ?? 0) - c));
+            }, 0);
+            const discTotal = discCertas + discErradas;
+            const discTaxa = discTotal > 0 ? Math.min(100, Math.round((discCertas / discTotal) * 100)) : 0;
 
             return (
               <div 
@@ -1043,22 +1228,44 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-medium border border-slate-200/60 dark:border-slate-700/60">
                         <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
                         <span>Questões Resolvidas:</span>
-                        <strong className="font-extrabold text-slate-900 dark:text-slate-100">{totalQuestionsSolved}</strong>
+                        <strong className="font-extrabold text-slate-900 dark:text-slate-100">{discTotal}</strong>
                       </div>
 
                       {/* Percentual de Acerto */}
-                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium border ${accuracyStyle.badgeClass}`}>
-                        <Target className="w-3.5 h-3.5 shrink-0" />
-                        <span>Percentual de Acerto:</span>
-                        <strong className="font-extrabold inline-flex items-center gap-1">
-                          {accuracyStyle.hasCrown && (
-                            <span title="Excelência (>90%)" className="inline-flex">
-                              <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0 drop-shadow-xs" />
-                            </span>
-                          )}
-                          <span>{accuracyStyle.label}</span>
-                        </strong>
-                      </div>
+                      {discTotal === 0 ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 metric-acerto-sem-dados">
+                          <Target className="w-3.5 h-3.5 shrink-0" />
+                          <span>Percentual de Acerto:</span>
+                          <strong className="font-extrabold">-</strong>
+                        </div>
+                      ) : discTaxa <= 50 ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 metric-acerto-alerta">
+                          <Target className="w-3.5 h-3.5 shrink-0" />
+                          <span>Percentual de Acerto:</span>
+                          <strong className="font-extrabold">{discTaxa}%</strong>
+                        </div>
+                      ) : discTaxa >= 51 && discTaxa <= 75 ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 metric-acerto-medio">
+                          <Target className="w-3.5 h-3.5 shrink-0" />
+                          <span>Percentual de Acerto:</span>
+                          <strong className="font-extrabold">{discTaxa}%</strong>
+                        </div>
+                      ) : discTaxa >= 76 && discTaxa <= 90 ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 metric-acerto-bom">
+                          <Target className="w-3.5 h-3.5 shrink-0" />
+                          <span>Percentual de Acerto:</span>
+                          <strong className="font-extrabold">{discTaxa}%</strong>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-600 metric-acerto-excelente">
+                          <Target className="w-3.5 h-3.5 shrink-0" />
+                          <span>Percentual de Acerto:</span>
+                          <strong className="font-extrabold flex items-center gap-1">
+                            <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                            <span>{discTaxa}%</span>
+                          </strong>
+                        </div>
+                      )}
                     </div>
 
                     {/* Barra de Progresso Horizontal */}
@@ -1148,12 +1355,42 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                 {isExpanded && (
                   <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 p-4 sm:p-5 space-y-2.5">
                     {/* Cabeçalho da grade expandida */}
-                    <div className="flex items-center justify-between pb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/80 dark:border-slate-800/80 px-2 sm:px-3">
+                    <div className="flex items-center justify-between pb-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-200/80 dark:border-slate-800/80 px-2 sm:px-3">
                       <span>Tópicos da Disciplina ({visibleAssuntos.length})</span>
-                      <div className="flex items-center gap-4 sm:gap-6">
-                        <span className="w-16 sm:w-20 text-right">Questões</span>
-                        <span className="w-20 sm:w-24 text-center">% Acerto</span>
-                        <span className="w-24 sm:w-28 text-center">Link</span>
+                      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        {/* Subdivisão de Métricas de Questões (Estilo Estudei) */}
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          {/* Coluna 1: Certas */}
+                          <div className="w-10 sm:w-14 text-center flex items-center justify-center" title="Questões Certas">
+                            <span className="inline-flex items-center justify-center gap-1 font-bold text-xs text-emerald-600 dark:text-emerald-400 metric-header-certas">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                              <span className="hidden sm:inline">CERTAS</span>
+                            </span>
+                          </div>
+
+                          {/* Coluna 2: Erradas */}
+                          <div className="w-10 sm:w-14 flex items-center justify-center gap-1 text-rose-600 dark:text-rose-400 font-bold metric-header-erradas" title="Questões Erradas">
+                            <X className="w-3.5 h-3.5 stroke-[3]" />
+                            <span className="hidden sm:inline text-[10px]">Erradas</span>
+                          </div>
+
+                          {/* Coluna 3: Total */}
+                          <div className="w-10 sm:w-14 flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 font-bold" title="Total de Questões">
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline text-[10px]">Total</span>
+                          </div>
+
+                          {/* Coluna 4: % Acerto */}
+                          <div className="w-16 sm:w-20 flex items-center justify-center gap-1 text-slate-500 dark:text-slate-400 font-bold" title="Percentual de Acerto">
+                            <Percent className="w-3.5 h-3.5" />
+                            <span className="text-[10px]">Acerto</span>
+                          </div>
+                        </div>
+
+                        {/* Coluna Link */}
+                        <span className="w-20 sm:w-24 text-center">Link</span>
+
+                        {/* Coluna Ações */}
                         <span className="w-16 text-center">Ações</span>
                       </div>
                     </div>
@@ -1185,14 +1422,14 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                       <div className="divide-y divide-slate-200/60 dark:divide-slate-800/60 space-y-1">
                         {visibleAssuntos.map((assunto) => {
                           const isCompleted = assunto.completed || assunto.status === 'dominado' || assunto.status === 'revisado';
-                          const topicQuestions = assunto.totalQuestionsSolved ?? 0;
-                          const rawAccuracy = (assunto.accuracyRate !== undefined && assunto.accuracyRate !== null && Number(assunto.accuracyRate) > 0)
-                            ? Number(assunto.accuracyRate)
-                            : (topicQuestions > 0 && assunto.correctQuestionsSolved != null 
-                                ? Math.round((assunto.correctQuestionsSolved / topicQuestions) * 100) 
-                                : (Number(assunto.accuracyRate) || 0));
-                          const topicAccuracy = Number(rawAccuracy);
-                          const topicAccStyle = getAccuracyConfig(topicAccuracy, topicQuestions);
+                          
+                          const certas = Number(assunto.questoesCertas ?? assunto.correctQuestionsSolved ?? 0);
+                          const erradas = Number(
+                            assunto.questoesErradas ?? 
+                            (assunto.totalQuestionsSolved !== undefined ? Math.max(0, Number(assunto.totalQuestionsSolved) - certas) : 0)
+                          );
+                          const total = certas + erradas;
+                          const taxa = total > 0 ? Math.min(100, Math.round((certas / total) * 100)) : null;
 
                           return (
                             <div
@@ -1203,7 +1440,7 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                   : 'hover:bg-white/80 dark:hover:bg-slate-900/60'
                               }`}
                             >
-                              {/* Checkbox (para marcar como concluído) + Nome do Tópico */}
+                              {/* Checkbox (para marcar como concluído) + Nome Limpo do Tópico (sem badge de relevância) */}
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <button
                                   type="button"
@@ -1221,62 +1458,80 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                 </button>
 
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span 
-                                      className={`text-sm font-semibold truncate transition-colors ${
-                                        isCompleted 
-                                          ? 'text-slate-600 dark:text-slate-400 line-through decoration-emerald-500/60' 
-                                          : 'text-slate-900 dark:text-slate-100'
-                                      }`}
-                                      title={assunto.name}
-                                    >
-                                      {assunto.name}
-                                    </span>
-                                    {assunto.importance && (
-                                      <span 
-                                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                                          assunto.importance === 'alta'
-                                            ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60'
-                                            : assunto.importance === 'media'
-                                            ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700/60'
-                                        }`}
-                                      >
-                                        {assunto.importance === 'alta' ? 'Alta' : assunto.importance === 'media' ? 'Média' : 'Baixa'}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <span 
+                                    className={`text-sm font-semibold truncate block transition-colors ${
+                                      isCompleted 
+                                        ? 'text-slate-600 dark:text-slate-400 line-through decoration-emerald-500/60' 
+                                        : 'text-slate-900 dark:text-slate-100'
+                                    }`}
+                                    title={assunto.name}
+                                  >
+                                    {assunto.name}
+                                  </span>
                                 </div>
                               </div>
 
-                              {/* Colunas minimalistas à direita: Questões, % de Acerto, Link e Ações */}
-                              <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-                                {/* Total Resolvidas */}
-                                <div className="w-16 sm:w-20 text-right">
-                                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 font-mono">
-                                    {topicQuestions}
+                              {/* Colunas à direita: Subdivisão de Questões, Link e Ações */}
+                              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                                {/* Botão interativo das 4 Colunas Métricas de Questões */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuestionsModal(assunto)}
+                                  title="Clique para registrar ou editar questões deste tópico"
+                                  className="flex items-center gap-1.5 sm:gap-2.5 p-1 -m-1 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-colors cursor-pointer group/metrics focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                                >
+                                  {/* Coluna 1 (Certas): Classes fixas verde emerald nativas do Tailwind */}
+                                  <div className="w-10 sm:w-14 text-center">
+                                    <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold text-center bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 metric-certas">
+                                      {certas}
+                                    </span>
                                   </div>
-                                  <div className="text-[10px] text-slate-400 font-medium">
-                                    resolvidas
-                                  </div>
-                                </div>
 
-                                {/* % de Acerto: Badge encapsulado (quadradinho com bordas levemente arredondadas) com fundo totalmente preenchido */}
-                                <div className="w-20 sm:w-24 flex justify-center">
-                                  <span className={`inline-flex items-center justify-center gap-1 min-w-[54px] px-2.5 py-1 rounded-md text-xs font-mono shadow-xs ${topicAccStyle.solidBadgeClass}`}>
-                                    {topicAccStyle.hasCrown && (
-                                      <span title="Excelência (>90%)" className="inline-flex">
-                                        <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-300 shrink-0 drop-shadow-xs" />
+                                  {/* Coluna 2 (Erradas): Classes fixas vermelho rose nativas do Tailwind */}
+                                  <div className="w-10 sm:w-14 text-center">
+                                    <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold text-center bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 metric-erradas">
+                                      {erradas}
+                                    </span>
+                                  </div>
+
+                                  {/* Coluna 3 (Total): Classes fixas neutro slate nativas do Tailwind */}
+                                  <div className="w-10 sm:w-14 text-center">
+                                    <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold text-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 metric-total">
+                                      {total}
+                                    </span>
+                                  </div>
+
+                                  {/* Coluna 4 (% de Acerto): Renderização condicional estrita baseada na taxa real */}
+                                  <div className="w-16 sm:w-20 flex justify-center">
+                                    {taxa === null ? (
+                                      <span className="px-2 py-1 rounded-lg text-xs font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 metric-acerto-sem-dados">
+                                        -
+                                      </span>
+                                    ) : taxa <= 50 ? (
+                                      <span className="px-2 py-1 rounded-lg text-xs font-bold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 metric-acerto-alerta">
+                                        {taxa}%
+                                      </span>
+                                    ) : taxa >= 51 && taxa <= 75 ? (
+                                      <span className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 metric-acerto-medio">
+                                        {taxa}%
+                                      </span>
+                                    ) : taxa >= 76 && taxa <= 90 ? (
+                                      <span className="px-2 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 metric-acerto-bom">
+                                        {taxa}%
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 rounded-lg text-xs font-bold flex items-center justify-center gap-1 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-600 metric-acerto-excelente">
+                                        <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                                        <span>{taxa}%</span>
                                       </span>
                                     )}
-                                    <span>{topicAccStyle.shortLabel}</span>
-                                  </span>
-                                </div>
+                                  </div>
+                                </button>
 
                                 {/* Coluna 'Link' (Atalho para Banco de Questões) */}
-                                <div className="w-24 sm:w-28 text-center flex justify-center items-center">
+                                <div className="w-20 sm:w-24 text-center flex justify-center items-center">
                                   {assunto.link && assunto.link.trim() ? (
-                                    <div className="flex items-center justify-center gap-1.5 group">
+                                    <div className="flex items-center justify-center gap-1 group">
                                       <a
                                         href={assunto.link.startsWith('http://') || assunto.link.startsWith('https://') ? assunto.link : `https://${assunto.link}`}
                                         target="_blank"
@@ -1307,17 +1562,25 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                         e.stopPropagation();
                                         handleOpenLinkModal(assunto);
                                       }}
-                                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 px-2 py-1 rounded-md transition-colors cursor-pointer"
                                       title="Adicionar link para este assunto"
                                     >
                                       <Plus className="w-3 h-3 text-slate-400" />
-                                      <span>Adicionar</span>
+                                      <span className="hidden sm:inline">Adicionar</span>
                                     </button>
                                   )}
                                 </div>
 
-                                {/* Ações do Tópico: Editar e excluir */}
+                                {/* Ações do Tópico: Registrar questões, editar e excluir */}
                                 <div className="w-16 flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenQuestionsModal(assunto)}
+                                    className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                                    title="Registrar / Editar Questões"
+                                  >
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -1330,6 +1593,11 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
                                       setTopicStatus(assunto.status || 'nao_iniciado');
                                       setTopicNotes(assunto.notes || '');
                                       setTopicLink(assunto.link || '');
+                                      const c = assunto.questoesCertas ?? assunto.correctQuestionsSolved ?? 0;
+                                      const t = assunto.questoesTotal ?? assunto.totalQuestionsSolved ?? 0;
+                                      const e = assunto.questoesErradas ?? Math.max(0, t - c);
+                                      setTopicCorrectQuestions(c);
+                                      setTopicWrongQuestions(e);
                                     }}
                                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                     title="Editar Tópico"
@@ -1512,6 +1780,35 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
             </select>
           </div>
 
+          <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+            <div>
+              <label className="block text-emerald-700 dark:text-emerald-400 font-semibold mb-1 flex items-center gap-1">
+                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                Questões Certas
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={topicCorrectQuestions}
+                onChange={(e) => setTopicCorrectQuestions(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full rounded-xl border border-emerald-300 dark:border-emerald-700/80 bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 px-3 py-2 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-rose-700 dark:text-rose-400 font-semibold mb-1 flex items-center gap-1">
+                <X className="w-3.5 h-3.5 stroke-[3]" />
+                Questões Erradas
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={topicWrongQuestions}
+                onChange={(e) => setTopicWrongQuestions(Math.max(0, parseInt(e.target.value) || 0))}
+                className="w-full rounded-xl border border-rose-300 dark:border-rose-700/80 bg-white dark:bg-slate-900 text-rose-800 dark:text-rose-300 px-3 py-2 text-xs font-mono font-bold focus:ring-2 focus:ring-rose-500 outline-none"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
               Observações / Artigos da Lei
@@ -1665,6 +1962,234 @@ export const DisciplinasView: React.FC<DisciplinasViewProps> = ({
           showFeedback('success', 'Edital importado e estruturado com sucesso!');
         }}
       />
+
+      {/* Modal: Registrar / Editar Questões do Tópico (Estilo "Estudei") */}
+      <Modal
+        isOpen={isQuestionsModalOpen && targetAssuntoForQuestions !== null}
+        onClose={() => {
+          setIsQuestionsModalOpen(false);
+          setTargetAssuntoForQuestions(null);
+        }}
+        title="Registrar Questões do Tópico"
+        maxWidth="md"
+      >
+        {targetAssuntoForQuestions && (
+          <div className="space-y-5 text-xs">
+            {/* Contexto do Tópico */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Tópico Selecionado
+              </span>
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                {targetAssuntoForQuestions.name}
+              </p>
+            </div>
+
+            {/* Cards de Questões Certas e Erradas */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Card Certas */}
+              <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold">
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Questões Certas</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                    Acertos
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQCertasInput(prev => Math.max(0, prev - 1))}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    -1
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    value={qCertasInput}
+                    onChange={(e) => setQCertasInput(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="flex-1 text-center font-mono font-bold text-lg rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-200 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQCertasInput(prev => prev + 1)}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    +1
+                  </button>
+                </div>
+
+                {/* Atalhos Rápidos */}
+                <div className="flex items-center gap-1.5 justify-center pt-1">
+                  {[5, 10, 20].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setQCertasInput(prev => prev + amt)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                    >
+                      +{amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Card Erradas */}
+              <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold">
+                    <X className="w-4 h-4 stroke-[3]" />
+                    <span>Questões Erradas</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-800 dark:text-rose-300">
+                    Erros
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQErradasInput(prev => Math.max(0, prev - 1))}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    -1
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    value={qErradasInput}
+                    onChange={(e) => setQErradasInput(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="flex-1 text-center font-mono font-bold text-lg rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-900 text-rose-800 dark:text-rose-200 py-1.5 focus:ring-2 focus:ring-rose-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQErradasInput(prev => prev + 1)}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-bold text-sm flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    +1
+                  </button>
+                </div>
+
+                {/* Atalhos Rápidos */}
+                <div className="flex items-center gap-1.5 justify-center pt-1">
+                  {[1, 3, 5].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setQErradasInput(prev => prev + amt)}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+                    >
+                      +{amt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Prévia Calculada das Métricas */}
+            {(() => {
+              const modalCertas = Math.max(0, Number(qCertasInput) || 0);
+              const modalErradas = Math.max(0, Number(qErradasInput) || 0);
+              const modalTotal = modalCertas + modalErradas;
+              const modalRate = modalTotal > 0 ? Math.min(100, Math.round((modalCertas / modalTotal) * 100)) : null;
+
+              const getModalPctStyle = () => {
+                if (modalTotal === 0 || modalRate === null) {
+                  return {
+                    text: '-',
+                    className: 'text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 metric-acerto-sem-dados',
+                  };
+                }
+                if (modalRate <= 50) {
+                  return {
+                    text: `${modalRate}%`,
+                    className: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 metric-acerto-alerta',
+                  };
+                }
+                if (modalRate <= 75) {
+                  return {
+                    text: `${modalRate}%`,
+                    className: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 metric-acerto-medio',
+                  };
+                }
+                if (modalRate <= 90) {
+                  return {
+                    text: `${modalRate}%`,
+                    className: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 metric-acerto-bom',
+                  };
+                }
+                return {
+                  text: `${modalRate}%`,
+                  className: 'text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-400 dark:border-emerald-600 metric-acerto-excelente',
+                };
+              };
+
+              const modalPctStyle = getModalPctStyle();
+
+              return (
+                <div className="p-3.5 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      Total de Questões
+                    </span>
+                    <p className="text-base font-black font-mono text-slate-800 dark:text-slate-200">
+                      {modalTotal} <span className="text-xs font-normal text-slate-500 font-sans">resolvidas</span>
+                    </p>
+                  </div>
+
+                  <div className="text-right space-y-0.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium block">
+                      Aproveitamento
+                    </span>
+                    <span className={`inline-flex items-center justify-center min-w-[50px] px-2.5 py-1 rounded-md text-xs font-mono font-semibold border ${modalPctStyle.className}`}>
+                      <span>{modalPctStyle.text}</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Ações do Modal */}
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setQCertasInput(0);
+                  setQErradasInput(0);
+                }}
+                className="text-xs text-slate-400 hover:text-rose-500 transition-colors cursor-pointer underline"
+              >
+                Zerar contagem
+              </button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsQuestionsModalOpen(false);
+                    setTargetAssuntoForQuestions(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  isLoading={isSubmitting}
+                  onClick={handleSaveQuestions}
+                >
+                  Salvar Questões
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

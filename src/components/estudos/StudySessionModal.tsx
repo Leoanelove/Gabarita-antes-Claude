@@ -655,12 +655,14 @@ export const StudySessionModal: React.FC<StudySessionModalProps> = ({
                 </span>
 
                 <div 
-                  className="text-4xl sm:text-5xl font-mono font-black tracking-widest select-none transition-all duration-300 text-slate-900 dark:text-white"
+                  className="text-4xl sm:text-5xl font-mono font-black tracking-widest select-none transition-all duration-300 text-white"
                   style={isDarkMode ? {
                     color: '#ffffff',
                     textShadow: `0 0 10px ${themeToken.glow}, 0 0 20px ${themeToken.glow}, 0 0 40px ${themeToken.glow}`,
                   } : {
-                    color: '#0f172a',
+                    color: '#FFFFFF',
+                    filter: `drop-shadow(0 0 2px ${palette.primary}) drop-shadow(0 0 6px ${palette.primary}80)`,
+                    textShadow: `0 0 1px ${palette.primary}, 0 0 4px ${palette.primary}aa`,
                   }}
                 >
                   {formatTime(secondsRemaining)}

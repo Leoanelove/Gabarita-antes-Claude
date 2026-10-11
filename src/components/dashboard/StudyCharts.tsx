@@ -131,9 +131,9 @@ export const StudyCharts: React.FC<StudyChartsProps> = ({ sessoes, disciplinas }
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
             <span>Média da semana: {(last7DaysData.reduce((acc, d) => acc + d.hours, 0) / 7).toFixed(1)}h/dia</span>
-            <span className="theme-total-badge px-2 py-0.5 rounded-md font-bold">
+            <div className="px-3 py-1 rounded-full text-xs font-bold border shadow-sm transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700">
               Total: {last7DaysData.reduce((acc, d) => acc + d.hours, 0).toFixed(1)}h • {last7DaysData.reduce((acc, d) => acc + d.questions, 0)} questões
-            </span>
+            </div>
           </div>
         </div>
       ) : (
