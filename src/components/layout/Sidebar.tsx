@@ -4,7 +4,6 @@ import {
   Target, 
   BookOpen, 
   Repeat, 
-  HelpCircle, 
   Trophy, 
   Award, 
   UserCircle, 
@@ -21,7 +20,8 @@ import {
   BarChart3, 
   Shield, 
   Crown,
-  BookX
+  BookX,
+  Layers
 } from 'lucide-react';
 import { NavigationTab, StudyMethod, Concurso } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'plano', label: 'Plano de Estudos', icon: CalendarClock },
     { id: 'estudos', label: 'Edital Verticalizado', icon: BookOpen },
     { id: 'revisoes', label: 'Revisões Espaçadas', icon: Repeat, badge: '3 hoje' },
-    { id: 'questoes', label: 'Questões', icon: HelpCircle },
+    { id: 'flashcards', label: 'Flashcards', icon: Layers },
     { id: 'caderno_erros', label: 'Caderno de Erros', icon: BookX },
     { id: 'metas', label: 'Metas & Desempenho', icon: Trophy },
     { id: 'analytics', label: 'Estatísticas', icon: BarChart3 },

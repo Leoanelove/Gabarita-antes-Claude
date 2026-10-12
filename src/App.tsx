@@ -48,6 +48,7 @@ import { ConcursosView } from './components/concursos/ConcursosView';
 import { PlanoView } from './components/plano/PlanoView';
 import { DisciplinasView } from './components/disciplinas/DisciplinasView';
 import { RevisoesView } from './components/revisoes/RevisoesView';
+import { FlashcardsView } from './components/flashcards/FlashcardsView';
 import { QuestoesView } from './components/questoes/QuestoesView';
 import { CadernoErrosView } from './components/questoes/CadernoErrosView';
 import { MetasView } from './components/metas/MetasView';
@@ -864,6 +865,14 @@ const MainApp: React.FC = () => {
               onBatchRescheduleOverdue={handleBatchRescheduleOverdueRevisoes}
               onUpdateSettings={handleUpdateRevisionSettings}
               onOpenStudyTimer={handleOpenStudyTimer}
+            />
+          )}
+
+          {currentTab === 'flashcards' && (
+            <FlashcardsView
+              disciplinas={disciplinas}
+              assuntos={assuntos}
+              onNavigateTab={setCurrentTab}
             />
           )}
 

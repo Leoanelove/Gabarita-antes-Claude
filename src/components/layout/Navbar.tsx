@@ -59,6 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     cronograma: { title: 'Cronograma Fixo de Estudos', subtitle: 'Grade semanal e calendário executível balanceado' },
     estudos: { title: 'Edital Verticalizado & Disciplinas', subtitle: 'Concurso > Cargo > Disciplina > Tópico > Subtópico com progresso detalhado' },
     revisoes: { title: 'Revisões Espaçadas', subtitle: 'Curva de esquecimento e repetição sistemática (24h, 7d, 30d)' },
+    flashcards: { title: 'Flashcards & Repetição Espaçada', subtitle: 'Domine conceitos-chave com memorização ativa e revisões inteligentes' },
     questoes: { title: 'Banco de Questões', subtitle: 'Treino intensivo com gabaritos fundamentados e estatísticas' },
     caderno_erros: { title: 'Caderno de Erros & Reincidências', subtitle: 'Diagnóstico de falhas, pontos de atenção e consolidação de aprendizado' },
     metas: { title: 'Metas & Desempenho', subtitle: 'Horas líquidas, percentuais de acerto e evolução semanal' },

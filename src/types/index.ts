@@ -649,6 +649,29 @@ export interface Notificacao {
   createdAt: string;
 }
 
+export interface Flashcard {
+  id: string;
+  deckId: string;
+  disciplina: string;
+  topico?: string;
+  frente: string;
+  verso: string;
+  dificuldade?: 'facil' | 'bom' | 'dificil' | 'errei';
+  intervaloDias: number;
+  proximaRevisao: string;
+  criadoEm: string;
+  revisoesTotal: number;
+}
+
+export interface Deck {
+  id: string;
+  disciplina: string;
+  nome: string;
+  totalCards: number;
+  pendentesHoje: number;
+  icone?: string;
+}
+
 export type NavigationTab = 
   | 'dashboard'
   | 'sessao'
@@ -658,6 +681,7 @@ export type NavigationTab =
   | 'cronograma'
   | 'estudos'
   | 'revisoes'
+  | 'flashcards'
   | 'questoes'
   | 'caderno_erros'
   | 'metas'
