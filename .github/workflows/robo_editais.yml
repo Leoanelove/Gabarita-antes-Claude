@@ -20,7 +20,7 @@ jobs:
 
       - name: Instalar bibliotecas
         run: |
-          pip install requests supabase google-generativeai
+          pip install requests supabase google-generativeai beautifulsoup4
 
       - name: Executar o script de ingestao
         env:
