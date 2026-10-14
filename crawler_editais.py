@@ -58,6 +58,19 @@ if not GEMINI_API_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 gemini = genai.Client(api_key=GEMINI_API_KEY)
 
+# Sessão que imita um navegador Chrome de verdade (assinatura TLS incluída)
+# e guarda cookies entre as páginas. Se a biblioteca curl_cffi não estiver
+# instalada, usa o requests comum.
+try:
+    from curl_cffi import requests as _http_chrome
+
+    sessao = _http_chrome.Session(impersonate="chrome")
+    print("🌐 Usando curl_cffi (imitando Chrome).")
+except ImportError:
+    sessao = requests.Session()
+    sessao.headers.update(HEADERS)
+    print("⚠️ curl_cffi não instalado; usando requests comum.")
+
 
 # ============================================================
 # MODELOS DE RESPOSTA DO GEMINI
@@ -366,14 +379,10 @@ REGRAS CRÍTICAS:
 
 def baixar_pagina(url: str) -> requests.Response:
     headers = {
-        **HEADERS,
-        "Accept": (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "*/*;q=0.8"
-        ),
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
         "Referer": ESTRATEGIA_URL,
     }
-    resposta = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+    resposta = sessao.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
     resposta.raise_for_status()
     return resposta
 
@@ -417,7 +426,7 @@ def encontrar_pdfs(soup: BeautifulSoup, url_base: str) -> list[str]:
 
 def baixar_pdf(pdf_url: str) -> str | None:
     try:
-        resposta = requests.get(pdf_url, headers=HEADERS, timeout=PDF_TIMEOUT)
+        resposta = sessao.get(pdf_url, timeout=PDF_TIMEOUT)
         resposta.raise_for_status()
 
         # Valida o arquivo de verdade: PDF começa com "%PDF".
