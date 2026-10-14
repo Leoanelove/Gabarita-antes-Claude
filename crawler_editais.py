@@ -12,13 +12,38 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, GEMINI_KEY]):
-    raise ValueError("Chaves secretas faltando nas variáveis de ambiente.")
+    raise ValueError("Chaves secretas em falta nas variáveis de ambiente.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 genai.configure(api_key=GEMINI_KEY)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
+
+# Schema estruturado para a extração do resumo do concurso pelo Gemini
+concurso_detalhes_schema = {
+    "type": "object",
+    "properties": {
+        "orgao": {"type": "string"},
+        "banca": {"type": "string"},
+        "esfera": {"type": "string", "enum": ["Federal", "Estadual", "Municipal"]},
+        "data_prova": {"type": "string", "description": "Formato YYYY-MM-DD ou null"},
+        "cargos": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "nome_cargo": {"type": "string"},
+                    "vagas": {"type": "integer"},
+                    "salario": {"type": "number"},
+                    "escolaridade": {"type": "string"}
+                },
+                "required": ["nome_cargo", "vagas", "salario"]
+            }
+        }
+    },
+    "required": ["orgao", "banca", "esfera", "cargos"]
 }
 
 materias_schema = {
@@ -37,8 +62,35 @@ materias_schema = {
     }
 }
 
-def extrair_conteudo_gemini(pdf_path: str, cargo: str):
-    print(f"-> Enviando PDF do edital para o Gemini (analisando cargo: {cargo})...")
+def analisar_artigo_com_gemini(texto_artigo: str):
+    """Lê o artigo completo e extrai todos os cargos, salários individuais e datas."""
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config={
+            "response_mime_type": "application/json",
+            "response_schema": concurso_detalhes_schema,
+            "temperature": 0.1,
+        }
+    )
+
+    prompt = f"""
+    Analise o texto deste artigo sobre o concurso e extraia os dados estruturados:
+    1. Nome do Órgão oficial e Banca organizadora.
+    2. Esfera (Federal, Estadual ou Municipal).
+    3. Data da Prova no formato YYYY-MM-DD (se indicada no texto).
+    4. Lista INDIVIDUALIZADA de todos os cargos citados (ex: Soldado, Oficial, Agente, Escrivão, Delegado),
+       com as suas respetivas vagas imediatas (número inteiro) e remuneração/salário inicial (número float).
+    
+    TEXTO DO ARTIGO:
+    {texto_artigo[:15000]}
+    """
+    
+    resposta = model.generate_content(prompt)
+    return json.loads(resposta.text)
+
+def extrair_materias_cargo(pdf_path: str, cargo: str):
+    """Envia o PDF ao Gemini e extrai a grade exata daquele cargo específico."""
+    print(f"   -> Extraindo conteúdo programático do PDF para o cargo: '{cargo}'...")
     pdf_file = genai.upload_file(pdf_path, mime_type="application/pdf")
     
     model = genai.GenerativeModel(
@@ -51,197 +103,155 @@ def extrair_conteudo_gemini(pdf_path: str, cargo: str):
     )
 
     prompt = f"""
-    Analise o documento do edital e extraia o CONTEÚDO PROGRAMÁTICO (disciplinas e tópicos) para o cargo: '{cargo}'.
-    1. Identifique os pesos reais das disciplinas no quadro de provas (ou 1.0 se não especificado).
-    2. Extraia todos os tópicos e subtópicos preservando a numeração oficial.
-    3. Responda estritamente com o array JSON de disciplinas.
+    Analise o documento do edital e extraia o CONTEÚDO PROGRAMÁTICO (disciplinas e tópicos)
+    especificamente para o cargo: '{cargo}'.
+    - Se o nome do cargo contiver 'Soldado' ou 'Oficial', busque os blocos correspondentes no anexo de conteúdo programático.
+    - Preserve os pesos de cada disciplina (ou 1.0 se padrão).
+    - Extraia todos os tópicos detalhados.
     """
-
+    
     resposta = model.generate_content([pdf_file, prompt])
     return json.loads(resposta.text)
 
-def limpar_vagas(texto: str) -> int:
-    nums = re.findall(r'\d+', texto.replace('.', ''))
-    return int(nums[0]) if nums else 1
-
-def limpar_salario(texto: str) -> float:
-    # Captura o maior salário caso venha em faixa (ex: R$ 5.667,92 a R$ 13.560,00)
-    valores = re.findall(r'R\$\s*([\d\.,]+)', texto)
-    if valores:
-        salarios = []
-        for v in valores:
-            try:
-                salarios.append(float(v.replace('.', '').replace(',', '.')))
-            except ValueError:
-                continue
-        if salarios:
-            return max(salarios)
-    return 0.0
-
-def normalizar_data(texto: str):
-    match = re.search(r'(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?', texto)
-    if not match:
-        # Busca datas escritas por extenso (ex: 7 de março de 2027)
-        meses = {
-            'janeiro': '01', 'fevereiro': '02', 'março': '03', 'marco': '03',
-            'abril': '04', 'maio': '05', 'junho': '06', 'julho': '07',
-            'agosto': '08', 'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
-        }
-        match_ext = re.search(r'(\d{1,2})\s+de\s+([a-zA-Zç]+)\s+de\s+(\d{4})', texto.lower())
-        if match_ext:
-            d, m_txt, a = match_ext.groups()
-            m = meses.get(m_txt, '01')
-            return f"{a}-{m}-{d.zfill(2)}"
-        return None
-
-    dia = match.group(1).zfill(2)
-    mes = match.group(2).zfill(2)
-    ano = match.group(3) or "2026"
-    if len(ano) == 2:
-        ano = f"20{ano}"
-    return f"{ano}-{mes}-{dia}"
-
-def inferir_esfera(orgao: str) -> str:
-    org = orgao.lower()
-    if any(k in org for k in ['prefeitura', 'câmara', 'guarda municipal', 'municipal']):
-        return 'Municipal'
-    if any(k in org for k in ['pc', 'pm', 'polícia civil', 'polícia militar', 'sefaz', 'tj', 'estadual']):
-        return 'Estadual'
-    return 'Federal'
-
-def processar_noticia_concurso(url_noticia: str):
-    print(f"\nAcessando página detalhada: {url_noticia}")
+def processar_concurso(url_noticia: str):
+    print(f"\n==========================================")
+    print(f"Acessando: {url_noticia}")
     res = requests.get(url_noticia, headers=HEADERS, timeout=30)
     if res.status_code != 200:
-        return None
+        return 0
 
     soup = BeautifulSoup(res.text, "html.parser")
-    texto_total = soup.get_text(" ", strip=True)
-
-    # Identifica o link do PDF do edital
+    
+    # Localiza o link do PDF
     pdf_url = None
     for a in soup.find_all("a", href=True):
         href = a["href"].strip()
         txt = a.get_text(strip=True).lower()
-        if ".pdf" in href.lower() or "edital" in txt:
-            if "cloudfront.net" in href or ".pdf" in href:
-                pdf_url = href
-                break
-
-    # Extrações básicas da notícia
-    banca = "A definir"
-    if "Banca:" in texto_total:
-        banca = texto_total.split("Banca:")[-1].split("Vagas:")[0].split("\n")[0].strip()
-
-    vagas = 1
-    if "Vagas:" in texto_total:
-        vagas = limpar_vagas(texto_total.split("Vagas:")[-1].split("Salário")[0])
-
-    salario = 0.0
-    if "Salários:" in texto_total or "Salário:" in texto_total:
-        bloco_sal = texto_total.split("Salário")[-1].split("Edital")[0]
-        salario = limpar_salario(bloco_sal)
-
-    data_prova = None
-    if "Data da prova:" in texto_total:
-        bloco_dt = texto_total.split("Data da prova:")[-1].split("\n")[0][:40]
-        data_prova = normalizar_data(bloco_dt)
-
-    return {
-        "banca": banca[:80],
-        "vagas": vagas,
-        "salario": salario,
-        "data_prova": data_prova,
-        "pdf_url": pdf_url
-    }
-
-def executar_varredura():
-    url_base = "https://concursos.estrategia.com/portal/concursos-abertos/"
-    print(f"1. Acessando portal de editais abertos: {url_base}")
-    
-    res = requests.get(url_base, headers=HEADERS, timeout=30)
-    if res.status_code != 200:
-        print(f"Erro ao acessar {url_base}: {res.status_code}")
-        return
-
-    soup = BeautifulSoup(res.text, "html.parser")
-    
-    # Coleta links de notícias dos concursos
-    concursos_links = []
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if "/portal/concurso-" in href and href not in concursos_links:
-            # Ex: https://concursos.estrategia.com/portal/concurso-pc-pe/
-            concursos_links.append(href)
-
-    print(f"Total de concursos identificados para verificar: {len(concursos_links)}")
-
-    editais_inseridos = 0
-    # Processa até 3 editais novos por rodada para não estourar o limite de tempo do GitHub Actions
-    for link_noticia in concursos_links:
-        if editais_inseridos >= 3:
-            print("Limite da rodada atingido (3 novos editais). Encerrando.")
+        if (".pdf" in href.lower() or "edital" in txt) and "cloudfront.net" in href:
+            pdf_url = href
             break
 
-        # Extrai o nome do concurso pelo slug da URL
-        slug_nome = link_noticia.rstrip("/").split("/")[-1].replace("concurso-", "")
-        orgao = slug_nome.replace("-", " ").upper()
+    # Limpa tags desnecessárias para enviar texto limpo à IA
+    for tag in soup(["script", "style", "nav", "footer"]):
+        tag.decompose()
+    texto_artigo = soup.get_text(" ", strip=True)
 
-        # Checa se já existe no Supabase
-        check = supabase.table("editais").select("id").ilike("orgao", f"%{orgao[:15]}%").execute()
+    print("-> Enviando dados da notícia para estruturação dos cargos via Gemini...")
+    dados = analisar_artigo_com_gemini(texto_artigo)
+    
+    orgao = dados.get("orgao", "Órgão Público")
+    banca = dados.get("banca", "A definir")
+    esfera = dados.get("esfera", "Estadual")
+    data_prova = dados.get("data_prova")
+    cargos_encontrados = dados.get("cargos", [])
+
+    if not cargos_encontrados:
+        print(f"Nenhum cargo estruturado encontrado para {orgao}.")
+        return 0
+
+    print(f"Identificados {len(cargos_encontrados)} cargos para {orgao}: {[c['nome_cargo'] for c in cargos_encontrados]}")
+
+    # Faz o download do PDF se disponível
+    temp_pdf = "temp_edital.pdf"
+    tem_pdf = False
+    if pdf_url:
+        print(f"-> A descarregar PDF do Edital: {pdf_url}")
+        try:
+            res_pdf = requests.get(pdf_url, headers=HEADERS, timeout=60)
+            if res_pdf.status_code == 200 and len(res_pdf.content) > 5000:
+                with open(temp_pdf, "wb") as f:
+                    f.write(res_pdf.content)
+                tem_pdf = True
+        except Exception as e:
+            print(f"Erro ao descarregar PDF: {e}")
+
+    inseridos = 0
+    for c in cargos_encontrados:
+        nome_cargo = c.get("nome_cargo", "Geral")
+        vagas = int(c.get("vagas", 1))
+        salario = float(c.get("salario", 0.0))
+        escolaridade = c.get("escolaridade", "Superior / Médio")
+
+        # Verifica duplicidade por Órgão + Cargo
+        check = supabase.table("editais")\
+            .select("id")\
+            .ilike("orgao", f"%{orgao[:15]}%")\
+            .ilike("cargo", f"%{nome_cargo[:15]}%")\
+            .execute()
+            
         if check.data and len(check.data) > 0:
-            continue
-
-        print(f"\n==========================================")
-        print(f"Processando novo concurso: {orgao}")
-        
-        dados = processar_noticia_concurso(link_noticia)
-        if not dados:
+            print(f"Cargo '{nome_cargo}' já registado. Ignorando...")
             continue
 
         materias = []
-        temp_pdf = "temp_edital.pdf"
-
-        # Se encontrou o link direto do PDF, baixa e extrai o conteúdo programático
-        if dados["pdf_url"]:
-            print(f"Baixando PDF oficial: {dados['pdf_url']}")
+        if tem_pdf:
             try:
-                res_pdf = requests.get(dados["pdf_url"], headers=HEADERS, timeout=60)
-                if res_pdf.status_code == 200 and len(res_pdf.content) > 5000:
-                    with open(temp_pdf, "wb") as f:
-                        f.write(res_pdf.content)
-                    
-                    # Extrai o conteúdo programático usando Gemini
-                    materias = extrair_conteudo_gemini(temp_pdf, cargo="Geral")
+                materias = extrair_materias_cargo(temp_pdf, nome_cargo)
             except Exception as e:
-                print(f"Não foi possível processar o PDF com Gemini: {e}")
-            finally:
-                if os.path.exists(temp_pdf):
-                    os.remove(temp_pdf)
+                print(f"Falha ao extrair matérias para '{nome_cargo}': {e}")
 
         payload = {
-            "titulo": f"Concurso {orgao} - 2026",
-            "orgao": orgao[:120],
-            "banca": dados["banca"],
-            "vagas": dados["vagas"],
-            "salario_maximo": dados["salario"],
-            "escolaridade": "Superior / Médio",
-            "link_origem": link_noticia,
-            "cargo": "Geral",
-            "esfera": inferir_esfera(orgao),
+            "titulo": f"{orgao} - 2026 - {nome_cargo}",
+            "orgao": orgao[:255],
+            "banca": banca[:100],
+            "vagas": vagas,
+            "salario_maximo": salario,
+            "escolaridade": escolaridade[:100],
+            "link_origem": url_noticia,
+            "cargo": nome_cargo[:255],
+            "esfera": esfera,
             "status": "Edital Publicado",
-            "data_prova": dados["data_prova"],
-            "observacoes": f"Importado automaticamente do Estratégia. Edital: {dados['pdf_url'] or 'Ver notícia'}",
+            "data_prova": data_prova,
+            "observacoes": f"Edital: {pdf_url}" if pdf_url else "Ver notícia de origem",
             "materias": materias
         }
 
         try:
             supabase.table("editais").insert(payload).execute()
-            print(f"SUCESSO: '{orgao}' inserido com {len(materias)} matérias!")
-            editais_inseridos += 1
-            time.sleep(2)
+            print(f"   ✓ Inserido com sucesso: {orgao} -> Cargo: {nome_cargo} | Vagas: {vagas} | Salário: R$ {salario} | Matérias: {len(materias)}")
+            inseridos += 1
         except Exception as e:
-            print(f"Erro ao salvar no Supabase: {e}")
+            print(f"Erro ao gravar no Supabase: {e}")
+
+    if tem_pdf and os.path.exists(temp_pdf):
+        os.remove(temp_pdf)
+
+    return inseridos
+
+def iniciar():
+    url_base = "https://concursos.estrategia.com/portal/concursos-abertos/"
+    print(f"1. A analisar listagem geral: {url_base}")
+    res = requests.get(url_base, headers=HEADERS, timeout=30)
+    if res.status_code != 200:
+        return
+
+    soup = BeautifulSoup(res.text, "html.parser")
+    links_concursos = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if "/portal/concurso-" in href and href not in links_concursos:
+            links_concursos.append(href)
+
+    print(f"Total de editais disponíveis para avaliação: {len(links_concursos)}")
+    
+    total_novos = 0
+    # Processa até 2 notícias completas por execução para gerir o tempo do GitHub Actions
+    for link in links_concursos:
+        if total_novos >= 2:
+            break
+        
+        slug = link.rstrip("/").split("/")[-1].replace("concurso-", "").replace("-", " ")
+        # Ignora se já estiver parcialmente registado
+        check = supabase.table("editais").select("id").ilike("orgao", f"%{slug[:12]}%").execute()
+        if check.data and len(check.data) > 0:
+            continue
+
+        inseridos = processar_concurso(link)
+        if inseridos > 0:
+            total_novos += 1
+            time.sleep(3)
+
+    print(f"\nRonda finalizada. Total de concursos estruturados inseridos: {total_novos}")
 
 if __name__ == "__main__":
-    executar_varredura()
+    iniciar()
