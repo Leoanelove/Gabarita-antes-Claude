@@ -28,9 +28,9 @@ ESTRATEGIA_URL = os.getenv(
     "https://concursos.estrategia.com/portal/concursos-abertos/",
 )
 
-# Modelo oficial e ativo na API v1beta do Google GenAI
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.0-flash")
+# Modelo recomendado oficialmente na resposta da API
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.8-flash")
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "0"))  # 0 = sem limite
 REPROCESS_LIMIT = int(os.getenv("REPROCESS_LIMIT", "0"))  # 0 = todos
@@ -93,7 +93,7 @@ class Cargo(BaseModel):
     )
     salario: float | None = Field(
         default=None,
-        description="Remuneração bruta inicial em reais (somente números, ex: 6500.50); null se não informado.",
+        description="Remuneração bruta inicial em reais (apenas números, ex: 6500.50); null se não informado.",
     )
     escolaridade: str | None = Field(
         default=None,
@@ -219,7 +219,7 @@ def esfera_fallback(orgao: str) -> str:
         "estadual", "polícia militar", "policia militar",
         "polícia civil", "policia civil", "corpo de bombeiros",
         "bombeiros", "secretaria de estado", "governo do estado", "tjr",
-        "pcerj", "pcsp", "pmesp", "pmmg",
+        "pcerj", "pcsp", "pmesp", "pmmg", "sefaz",
     )):
         return "Estadual"
 
@@ -230,7 +230,7 @@ def esfera_fallback(orgao: str) -> str:
 # GEMINI
 # ============================================================
 
-def chamar_gemini(contents, schema, tentativas: int = 4):
+def chamar_gemini(contents, schema, tentativas: int = 5):
     ultimo_erro = None
     modelos = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]
 
@@ -251,8 +251,9 @@ def chamar_gemini(contents, schema, tentativas: int = 4):
         except Exception as exc:
             ultimo_erro = exc
             if tentativa < tentativas - 1:
-                espera = 10 * (tentativa + 1)
-                print(f"⚠️ Gemini ({modelo}) erro: {str(exc)[:100]}; aguardando {espera}s...")
+                # Backoff exponencial simples para erros de carga/503
+                espera = 15 * (tentativa + 1)
+                print(f"⚠️ Gemini ({modelo}) erro temporário: {str(exc)[:110]}; aguardando {espera}s...")
                 time.sleep(espera)
 
     raise ultimo_erro
@@ -269,31 +270,31 @@ def enviar_pdf_gemini(pdf_path: str):
         if arquivo.state is None or estado == "ACTIVE":
             return arquivo
         if estado == "FAILED":
-            raise RuntimeError("Gemini falhou ao indexar o PDF.")
+            raise RuntimeError("Gemini falhou ao indexar o ficheiro PDF.")
         time.sleep(2)
         arquivo = gemini.files.get(name=arquivo.name)
 
-    raise TimeoutError("Tempo excedido aguardando ativação do PDF no Gemini.")
+    raise TimeoutError("Tempo excedido a aguardar pela ativação do PDF no Gemini.")
 
 
 def analisar_edital(texto_artigo: str, arquivo_gemini=None) -> Concurso | None:
     prompt = f"""
 Você é um especialista em análise de editais de concursos públicos no Brasil.
-Fontes: o EDITAL em PDF (se anexado) e o texto da notícia abaixo.
+Fontes disponíveis: o EDITAL em PDF (se anexado) e o texto extraído da notícia abaixo.
 
-Extraia as seguintes informações obrigatórias:
-1. 'orgao': Nome oficial do órgão.
-2. 'banca': Nome da instituição organizadora (ex: Cebraspe, FGV, FCC, Vunesp, etc.).
+Extraia com exatidão as seguintes informações:
+1. 'orgao': Nome oficial do órgão promotor do concurso.
+2. 'banca': Nome da instituição examinadora realizadora (ex: FGV, Cebraspe, FCC, Vunesp, etc.).
 3. 'esfera': Federal, Estadual ou Municipal.
-4. 'data_prova': Data da prova objetiva no formato YYYY-MM-DD (se inexistente, null).
+4. 'data_prova': Data da prova objetiva no formato YYYY-MM-DD (se inexistente, retorne null).
 5. 'cargos': Liste CADA um dos cargos e especialidades como um elemento separado.
    - Para cada cargo:
-     - 'nome_cargo': Denominação exata do cargo/função.
-     - 'vagas': Total de vagas imediatas + PcD + cotas (0 se for apenas CR).
-     - 'salario': Vencimento inicial (apenas número decimal, ex: 5410.20).
+     - 'nome_cargo': Denominação formal do cargo ou função.
+     - 'vagas': Total numérico de vagas imediatas + PcD + cotas (0 se for apenas Cadastro de Reserva).
+     - 'salario': Vencimento inicial puro (apenas número decimal, ex: 5410.20).
      - 'escolaridade': Fundamental, Médio, Técnico ou Superior.
-   - IMPORTANTE: Não agrupe múltiplos cargos em uma linha só.
-   - Não use o total geral de vagas do concurso no cargo se houver divisão por área.
+   - Não agregue múltiplos cargos num único item.
+   - Não use o total de vagas geral do concurso dentro de um cargo se existirem divisões por função.
 
 TEXTO DA NOTÍCIA:
 {texto_artigo[:25000]}
@@ -310,21 +311,21 @@ TEXTO DA NOTÍCIA:
 
 
 def extrair_materias_cargo(cargo: str, arquivo_gemini) -> list[dict]:
-    print(f"🧠 Extraindo conteúdo programático: {cargo}")
+    print(f"🧠 A extrair conteúdo programático: {cargo}")
 
     prompt = f"""
 Analise o edital em PDF anexado.
 
 TAREFA:
-Extraia a grade de conteúdo programático para o cargo específico:
+Extraia a grade completa de disciplinas e conteúdos para o cargo específico:
 "{cargo}"
 
 REGRAS:
-1. Busque no Anexo de Conteúdo Programático do edital.
-2. Agrupe tanto os conteúdos de Conhecimentos Básicos/Gerais quanto os Conhecimentos Específicos que se aplicam a este cargo.
-3. Não resuma: preserve os tópicos como redigidos no edital.
-4. Cada disciplina é um objeto em 'materias'.
-5. Cada assunto/ponto da disciplina é um item na lista 'topicos'.
+1. Localize a secção ou anexo de Conteúdo Programático.
+2. Junte os conteúdos de Conhecimentos Básicos/Gerais e Conhecimentos Específicos que pertençam a este cargo.
+3. Não resuma: preserve a redação dos itens e tópicos do edital.
+4. Cada disciplina deve ser um objeto em 'materias'.
+5. Cada tópico/assunto da disciplina deve ser um item de texto na lista 'topicos'.
 6. Se não houver disciplinas identificadas para esse cargo, retorne {{"materias": []}}.
 """
 
@@ -383,10 +384,10 @@ def encontrar_pdfs(soup: BeautifulSoup, url_base: str) -> list[str]:
         url = urljoin(url_base, href)
         href_lower = href.lower()
 
-        # Ignora arquivos institucionais que não são editais de concurso
+        # Descarta termos de uso, políticas e contratos
         if any(ignorar in href_lower or ignorar in texto for ignorar in (
             "termos-de-uso", "termo-de-uso", "termos+de+uso", "politica-de-privacidade",
-            "privacidade", "contrato", "regulamento-geral"
+            "privacidade", "contrato", "regulamento-geral", "manual"
         )):
             continue
 
@@ -436,17 +437,17 @@ def baixar_pdf(pdf_url: str) -> str | None:
         arquivo.write(conteudo)
         arquivo.close()
 
-        print(f"✓ PDF baixado ({len(conteudo) / 1024:.1f} KB): {pdf_url[:80]}")
+        print(f"✓ PDF descarregado ({len(conteudo) / 1024:.1f} KB): {pdf_url[:80]}")
         return arquivo.name
 
     except Exception as exc:
-        print(f"⚠️ Erro ao baixar PDF ({pdf_url[:60]}): {exc}")
+        print(f"⚠️ Erro ao descarregar PDF ({pdf_url[:60]}): {exc}")
         return None
 
 
 def obter_pdf(soup: BeautifulSoup, url_base: str):
     for pdf_url in encontrar_pdfs(soup, url_base)[:6]:
-        print(f"📄 Testando link de PDF: {pdf_url}")
+        print(f"📄 A testar link de PDF: {pdf_url}")
         pdf_path = baixar_pdf(pdf_url)
         if pdf_path:
             return pdf_url, pdf_path
@@ -501,14 +502,14 @@ def salvar_ou_atualizar(payload: dict, orgao: str, cargo: str, materias: list[di
         if materias_validas(materias):
             update_payload["materias"] = materias
         elif materias_validas(antigas):
-            print(f"↪ {cargo}: preservando matérias cadastradas previamente.")
+            print(f"↪ {cargo}: a preservar matérias registadas previamente.")
 
         supabase.table("editais").update(update_payload).eq("id", edital_id).execute()
         print(f"🔄 Atualizado: {orgao} -> {cargo}")
         return "atualizado"
 
     if not materias_validas(materias):
-        print(f"⚠️ Inserindo '{cargo}' sem matérias (pendente de reprocessamento).")
+        print(f"⚠️ A inserir '{cargo}' sem matérias (pendente de reprocessamento).")
 
     supabase.table("editais").insert({**payload, "materias": materias}).execute()
     print(f"🆕 Inserido: {orgao} -> {cargo} ({len(materias)} matérias)")
@@ -551,13 +552,13 @@ def listar_editais_para_reprocessar():
 
 def processar_concurso(url_noticia: str) -> int:
     print("\n" + "=" * 80)
-    print(f"🌐 Processando: {url_noticia}")
+    print(f"🌐 A processar: {url_noticia}")
     print("=" * 80)
 
     try:
         resposta = baixar_pagina(url_noticia)
     except Exception as exc:
-        print(f"❌ Falha ao acessar notícia ({url_noticia}): {exc}")
+        print(f"❌ Falha ao aceder à notícia ({url_noticia}): {exc}")
         return 0
 
     soup = BeautifulSoup(resposta.text, "html.parser")
@@ -581,7 +582,7 @@ def processar_concurso(url_noticia: str) -> int:
 
         dados = analisar_edital(texto_artigo, arquivo_gemini)
         if (not dados or not dados.cargos) and arquivo_gemini:
-            print("⚠️ Re-tentando análise apenas com o texto da notícia...")
+            print("⚠️ A tentar análise alternativa apenas com o texto da notícia...")
             dados = analisar_edital(texto_artigo, None)
 
         if not dados or not dados.cargos:
@@ -627,7 +628,7 @@ def processar_concurso(url_noticia: str) -> int:
                 if status in ("inserido", "atualizado"):
                     alterados += 1
             except Exception as exc:
-                print(f"❌ Erro ao salvar cargo '{nome_cargo}': {exc}")
+                print(f"❌ Erro ao guardar cargo '{nome_cargo}': {exc}")
 
             time.sleep(SLEEP_SECONDS)
 
@@ -666,14 +667,14 @@ def descobrir_pdf_do_registro(item: dict):
             soup = BeautifulSoup(baixar_pagina(link_origem).text, "html.parser")
             return obter_pdf(soup, link_origem)
         except Exception as exc:
-            print(f"⚠️ Erro ao buscar PDF pela página original: {exc}")
+            print(f"⚠️ Erro ao procurar PDF pela página original: {exc}")
 
     return None, None
 
 
 def reprocessar_materias():
     registros = listar_editais_para_reprocessar()
-    print(f"♻️ Total de registros pendentes de matérias: {len(registros)}")
+    print(f"♻️ Total de registos pendentes de matérias: {len(registros)}")
 
     grupos: dict[str, list[dict]] = {}
     for item in registros:
@@ -694,7 +695,7 @@ def reprocessar_materias():
 
             for item in itens:
                 cargo = normalizar_texto(item.get("cargo"))
-                print(f"♻️ Processando ID {item['id']}: {item.get('orgao')} -> {cargo}")
+                print(f"♻️ A processar ID {item['id']}: {item.get('orgao')} -> {cargo}")
 
                 materias = extrair_materias_cargo(cargo, arquivo_gemini)
                 if not materias:
@@ -724,7 +725,7 @@ def reprocessar_materias():
                 except OSError:
                     pass
 
-    print(f"\n🏁 Reprocessamento concluído: {sucesso}/{len(registros)} registros finalizados.")
+    print(f"\n🏁 Reprocessamento concluído: {sucesso}/{len(registros)} registos finalizados.")
 
 
 def listar_links_concursos() -> list[str]:
@@ -740,6 +741,10 @@ def listar_links_concursos() -> list[str]:
         href_limpa = href.split("#")[0].split("?")[0].rstrip("/")
 
         if href_limpa == url_base_limpa:
+            continue
+
+        # Evita categorias agregadas (como /portal/concursos-abertos-carreiras-juridicas/) que não são notícias de um edital só
+        if any(ignorar in href_limpa for ignorar in ["concursos-abertos-", "noticias-"]):
             continue
 
         if any(p in href_limpa for p in [
@@ -763,7 +768,8 @@ def listar_links_concursos() -> list[str]:
                 link = urljoin(ESTRATEGIA_URL, el["href"]).strip()
                 link_limpo = link.split("#")[0].split("?")[0].rstrip("/")
                 if "/portal/" in link_limpo and link_limpo != url_base_limpa:
-                    links.add(link_limpo + "/")
+                    if not any(ignorar in link_limpo for ignorar in ["concursos-abertos-", "noticias-"]):
+                        links.add(link_limpo + "/")
 
     return sorted(links)
 
