@@ -30,6 +30,8 @@ ESTRATEGIA_URL = os.getenv(
 
 # Confirme que este nome existe na sua conta (veja a lista no AI Studio).
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+# Modelo reserva, usado quando o principal está sobrecarregado (erro 503).
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "0"))  # 0 = sem limite
 REPROCESS_LIMIT = int(os.getenv("REPROCESS_LIMIT", "0"))  # 0 = todos
@@ -209,14 +211,17 @@ def esfera_fallback(orgao: str) -> str:
 # GEMINI
 # ============================================================
 
-def chamar_gemini(contents, schema, tentativas: int = 4):
-    """Chamada com retry (limite de taxa, 503, JSON truncado)."""
+def chamar_gemini(contents, schema, tentativas: int = 6):
+    """Retry (limite de taxa, 503, JSON truncado), com modelo reserva."""
     ultimo_erro = None
+    # 2 tentativas no modelo principal, depois alterna para o reserva.
+    modelos = [GEMINI_MODEL, GEMINI_MODEL] + [GEMINI_FALLBACK_MODEL] * 4
 
     for tentativa in range(tentativas):
+        modelo = modelos[tentativa]
         try:
             resposta = gemini.models.generate_content(
-                model=GEMINI_MODEL,
+                model=modelo,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     temperature=0,
@@ -231,8 +236,9 @@ def chamar_gemini(contents, schema, tentativas: int = 4):
         except Exception as exc:
             ultimo_erro = exc
             if tentativa < tentativas - 1:
-                espera = 5 * (2 ** tentativa)
-                print(f"⚠️ Gemini falhou ({exc}); nova tentativa em {espera}s")
+                espera = min(15 * (tentativa + 1), 60)
+                print(f"⚠️ Gemini ({modelo}) falhou: {str(exc)[:120]}; "
+                      f"nova tentativa em {espera}s")
                 time.sleep(espera)
 
     raise ultimo_erro
