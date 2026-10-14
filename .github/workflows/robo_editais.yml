@@ -1,30 +1,27 @@
-```yaml
+
 name: Robo Diario de Editais - Gabarita PRO
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       mode:
-        description: "Escolha o que o robo vai fazer"
+        description: "Escolha a tarefa"
         required: true
-        default: "crawl"
+        default: "reprocessar-materias"
         type: choice
         options:
           - crawl
           - reprocessar-materias
-
       max_concursos:
-        description: "Limite de concursos (0 = todos)"
+        description: "Limite de concursos novos"
         required: true
         default: "2"
         type: string
-
       reprocess_limit:
-        description: "Limite de editais antigos (0 = todos)"
+        description: "Limite de editais antigos"
         required: true
         default: "2"
         type: string
-
   schedule:
     - cron: "0 6 * * *"
 
@@ -65,4 +62,3 @@ jobs:
           else
             python crawler_editais.py --mode crawl
           fi
-```
