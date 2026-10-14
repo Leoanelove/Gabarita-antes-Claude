@@ -28,9 +28,9 @@ ESTRATEGIA_URL = os.getenv(
     "https://concursos.estrategia.com/portal/concursos-abertos/",
 )
 
-# Modelos oficiais e válidos da API Gemini
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-1.5-flash")
+# Modelo oficial e ativo na API v1beta do Google GenAI
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.0-flash")
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "0"))  # 0 = sem limite
 REPROCESS_LIMIT = int(os.getenv("REPROCESS_LIMIT", "0"))  # 0 = todos
@@ -230,12 +230,12 @@ def esfera_fallback(orgao: str) -> str:
 # GEMINI
 # ============================================================
 
-def chamar_gemini(contents, schema, tentativas: int = 5):
+def chamar_gemini(contents, schema, tentativas: int = 4):
     ultimo_erro = None
-    modelos = [GEMINI_MODEL, GEMINI_MODEL] + [GEMINI_FALLBACK_MODEL] * 3
+    modelos = [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]
 
     for tentativa in range(tentativas):
-        modelo = modelos[tentativa]
+        modelo = modelos[tentativa % len(modelos)]
         try:
             resposta = gemini.models.generate_content(
                 model=modelo,
@@ -251,7 +251,7 @@ def chamar_gemini(contents, schema, tentativas: int = 5):
         except Exception as exc:
             ultimo_erro = exc
             if tentativa < tentativas - 1:
-                espera = min(10 * (tentativa + 1), 40)
+                espera = 10 * (tentativa + 1)
                 print(f"⚠️ Gemini ({modelo}) erro: {str(exc)[:100]}; aguardando {espera}s...")
                 time.sleep(espera)
 
@@ -382,6 +382,13 @@ def encontrar_pdfs(soup: BeautifulSoup, url_base: str) -> list[str]:
         texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
         url = urljoin(url_base, href)
         href_lower = href.lower()
+
+        # Ignora arquivos institucionais que não são editais de concurso
+        if any(ignorar in href_lower or ignorar in texto for ignorar in (
+            "termos-de-uso", "termo-de-uso", "termos+de+uso", "politica-de-privacidade",
+            "privacidade", "contrato", "regulamento-geral"
+        )):
+            continue
 
         pontuacao = 0
         if ".pdf" in href_lower:
