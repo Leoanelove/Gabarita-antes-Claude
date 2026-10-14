@@ -211,14 +211,27 @@ def extrair_cargos_inteligente(soup: BeautifulSoup, orgao_capa: str, texto_notic
 def salvar_no_banco(payload: dict, materias: list[dict]):
     try:
         dados_completos = {**payload, "materias": materias}
-        supabase.table("editais").upsert(
-            dados_completos, 
-            on_conflict="link_origem,cargo"
-        ).execute()
-        print(f"   💾 Sincronizado no Supabase: {payload['orgao']} -> {payload['cargo']} ({len(materias)} matérias)")
-    except Exception as exc:
-        print(f"   ❌ Erro ao salvar no Supabase: {exc}")
+        
+        # Verifica se já existe registro com esse link e cargo para atualizar ou inserir sem conflito de restrição
+        existente = (
+            supabase.table("editais")
+            .select("id")
+            .eq("link_origem", payload["link_origem"])
+            .eq("cargo", payload["cargo"])
+            .limit(1)
+            .execute()
+        )
 
+        if existente.data:
+            edital_id = existente.data[0]["id"]
+            supabase.table("editais").update(dados_completos).eq("id", edital_id).execute()
+            print(f"   🔄 Atualizado no Supabase: {payload['orgao']} -> {payload['cargo']} ({len(materias)} matérias)")
+        else:
+            supabase.table("editais").insert(dados_completos).execute()
+            print(f"   🆕 Inserido no Supabase: {payload['orgao']} -> {payload['cargo']} ({len(materias)} matérias)")
+
+    except Exception as exc:
+        print(f"   ❌ Erro ao salvar no Supabase ({payload['orgao']} - {payload['cargo']}): {exc}")
 def processar_item(item: dict) -> bool:
     url = item["url"]
     orgao_capa = item["orgao_capa"]
