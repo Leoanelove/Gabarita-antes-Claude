@@ -52,8 +52,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: "gemini-2.0-flash"
-          GEMINI_FALLBACK_MODEL: "gemini-2.0-flash"
+          GEMINI_MODEL: "gemini-3.8-flash"
+          GEMINI_FALLBACK_MODEL: "gemini-3.8-flash"
           MAX_CONCURSOS: ${{ inputs.max_concursos || '2' }}
           REPROCESS_LIMIT: ${{ inputs.reprocess_limit || '2' }}
         run: |
