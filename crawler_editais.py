@@ -13,25 +13,46 @@ from pydantic import BaseModel, ConfigDict, Field
 from supabase import Client, create_client
 
 # ============================================================
+# FUNÇÃO ANTI-FORMATAÇÃO MARKDOWN (EVITA ERRO DE COPIAR/COLAR)
+# ============================================================
+
+def limpar_url(u: str) -> str:
+    if not u:
+        return ""
+    u = u.strip()
+    # Se o editor colou no formato [texto](url), extrai apenas a url limpa
+    m = re.match(r"^\[.*?\]\((https?://[^\)]+)\)(.*)$", u)
+    if m:
+        return m.group(1) + m.group(2)
+    u = re.sub(r"\[https?://[^\]]+\]\((https?://[^\)]+)\)", r"\1", u)
+    return u.strip("[]()")
+
+
+# ============================================================
 # CONFIGURAÇÃO DE AMBIENTE
 # ============================================================
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+SUPABASE_URL = limpar_url(os.getenv("SUPABASE_URL", ""))
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-QCONCURSOS_ABERTOS_URL = os.getenv(
-    "QCONCURSOS_ABERTOS_URL",
-    "https://www.qconcursos.com/questoes-de-concursos/concursos?by_situation%5B%5D=3",
+PROTO = "https" + "://"
+DOMINIO_QC = PROTO + "www.qconcursos.com"
+JINA_PREFIX = PROTO + "r.jina.ai/"
+
+QCONCURSOS_ABERTOS_URL = limpar_url(
+    os.getenv(
+        "QCONCURSOS_ABERTOS_URL",
+        DOMINIO_QC + "/questoes-de-concursos/concursos?by_situation%5B%5D=3",
+    )
 )
 
-# Corrige caso o secret/env ainda esteja com 'gemini-3.8-flash'
 _modelo_env = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_MODEL = "gemini-2.5-flash" if "3.8" in _modelo_env else _modelo_env
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "1"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
-REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "35"))
+REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "45"))
 SLEEP_SECONDS = float(os.getenv("SLEEP_SECONDS", "2"))
 
 HEADERS_PADRAO = {
@@ -40,7 +61,7 @@ HEADERS_PADRAO = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
 }
 
@@ -81,7 +102,7 @@ class CargoResumo(BaseModel):
 class DadosConcursoQConcursos(BaseModel):
     model_config = ConfigDict(extra="ignore")
     orgao: str = Field(description="Nome oficial do órgão (ex: Prefeitura de Sobral - CE).")
-    banca: str = Field(description="Nome da banca organizadora (ex: Cebraspe, FGV, Consulplan). Nunca deixe vazio se constar na página.")
+    banca: str = Field(description="Nome da banca organizadora (ex: Cebraspe, FGV, Consulplan).")
     data_prova: str | None = Field(default=None, description="Data da prova no formato YYYY-MM-DD, se houver.")
     url_edital_pdf: str | None = Field(default=None, description="URL do arquivo PDF do edital, se presente.")
     cargos: list[CargoResumo] = Field(default_factory=list, description="Lista de todos os cargos listados nesta página do concurso.")
@@ -132,37 +153,37 @@ def identificar_esfera(orgao: str) -> str:
 
 
 # ============================================================
-# DOWNLOAD COM FALLBACK ANTI-BLOQUEIO (CURL_CFFI + JINA READER)
+# DOWNLOAD COM FALLBACK ANTI-BLOQUEIO (CURL_CFFI -> JINA READER)
 # ============================================================
 
-def baixar_html_ou_markdown(url: str) -> tuple[str, BeautifulSoup | None]:
-    """
-    Tenta baixar o HTML direto simulando Chrome 124.
-    Se tomar 403 da Cloudflare no IP do GitHub Actions, usa automaticamente o proxy Jina Reader.
-    """
+def baixar_conteudo_pagina(url: str) -> tuple[str, BeautifulSoup | None]:
+    url_limpa = limpar_url(url)
+
+    # 1. Tentativa direta via curl_cffi
     try:
         if TEM_CURL_CFFI:
-            resp = sessao.get(url, headers=HEADERS_PADRAO, timeout=REQUEST_TIMEOUT, impersonate="chrome124")
+            resp = sessao.get(url_limpa, headers=HEADERS_PADRAO, timeout=REQUEST_TIMEOUT, impersonate="chrome124")
         else:
-            resp = sessao.get(url, headers=HEADERS_PADRAO, timeout=REQUEST_TIMEOUT)
+            resp = sessao.get(url_limpa, headers=HEADERS_PADRAO, timeout=REQUEST_TIMEOUT)
 
         if resp.status_code == 200 and "Just a moment..." not in resp.text and len(resp.text) > 1500:
             soup = BeautifulSoup(resp.text, "html.parser")
             return resp.text, soup
-        print(f"⚠️ Status {resp.status_code} ou desafio Cloudflare em {url}. Acionando fallback Jina Reader...")
+        print(f"⚠️ Status {resp.status_code} direto em {url_limpa}. Buscando via Jina Reader...")
     except Exception as exc:
-        print(f"⚠️ Erro no acesso direto ({exc}). Acionando fallback Jina Reader...")
+        print(f"⚠️ Acesso direto falhou ({exc}). Buscando via Jina Reader...")
 
-    # Fallback via Jina Reader (retorna Markdown limpo com todos os links da página)
-    jina_url = f"[https://r.jina.ai/](https://r.jina.ai/){url}"
+    # 2. Fallback via Jina Reader (Modo Markdown completo com links no final)
+    jina_url = JINA_PREFIX + url_limpa
     headers_jina = {
-        **HEADERS_PADRAO,
-        "X-Return-Format": "html",
+        "User-Agent": HEADERS_PADRAO["User-Agent"],
+        "Accept": "text/plain, text/markdown, */*",
+        "X-With-Links-Summary": "true",
     }
-    resp_jina = requests.get(jina_url, headers=headers_jina, timeout=REQUEST_TIMEOUT + 15)
+    resp_jina = requests.get(jina_url, headers=headers_jina, timeout=REQUEST_TIMEOUT + 20)
     resp_jina.raise_for_status()
-    soup_jina = BeautifulSoup(resp_jina.text, "html.parser")
-    return resp_jina.text, soup_jina
+    texto_jina = resp_jina.text
+    return texto_jina, None
 
 
 # ============================================================
@@ -171,33 +192,30 @@ def baixar_html_ou_markdown(url: str) -> tuple[str, BeautifulSoup | None]:
 
 def listar_concursos_abertos() -> list[str]:
     print(f"🔎 Buscando lista de concursos abertos em: {QCONCURSOS_ABERTOS_URL}")
-    bruto, soup = baixar_html_ou_markdown(QCONCURSOS_ABERTOS_URL)
+    bruto, soup = baixar_conteudo_pagina(QCONCURSOS_ABERTOS_URL)
     links = []
 
-    # 1. Busca tags <a> que apontam para um edital específico em /questoes-de-concursos/concursos/SLUG
+    slugs_ignorar = {"concursos", "abertos", "previstos", "federais", "estaduais", "municipais", "busca"}
+
+    # Se veio HTML pelo acesso direto
     if soup:
         for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
-            url_completa = urljoin("[https://www.qconcursos.com](https://www.qconcursos.com)", href).split("#")[0].split("?")[0].rstrip("/")
+            href = limpar_url(a["href"])
+            url_completa = urljoin(DOMINIO_QC, href).split("#")[0].split("?")[0].rstrip("/")
             if "/questoes-de-concursos/concursos/" in url_completa:
-                slug = url_completa.split("/questoes-de-concursos/concursos/")[-1]
-                # Ignora páginas de filtro ou listagens genéricas
-                if slug and "/" not in slug and slug not in ("concursos", "abertos", "previstos"):
+                slug = url_completa.split("/questoes-de-concursos/concursos/")[-1].lower()
+                if slug and "/" not in slug and slug not in slugs_ignorar:
                     if url_completa not in links:
                         links.append(url_completa)
 
-    # 2. Fallback por Regex caso tenha vindo em formato texto/markdown
-    if not links:
-        encontrados = re.findall(
-            r"https?://(?:www\.)?qconcursos\.com/questoes-de-concursos/concursos/([a-z0-9\-]+)",
-            bruto,
-            flags=re.IGNORECASE,
-        )
-        for slug in encontrados:
-            if slug not in ("concursos", "abertos", "previstos"):
-                url_c = f"[https://www.qconcursos.com/questoes-de-concursos/concursos/](https://www.qconcursos.com/questoes-de-concursos/concursos/){slug}"
-                if url_c not in links:
-                    links.append(url_c)
+    # Extração via Regex (funciona tanto para HTML quanto para o Markdown do Jina Reader)
+    padrao_concurso = r"(?:/questoes-de-concursos/concursos/)([a-zA-Z0-9\-_]+)"
+    for slug in re.findall(padrao_concurso, bruto):
+        slug_low = slug.lower().strip("/")
+        if slug_low and slug_low not in slugs_ignorar and len(slug_low) > 4:
+            url_c = f"{DOMINIO_QC}/questoes-de-concursos/concursos/{slug_low}"
+            if url_c not in links:
+                links.append(url_c)
 
     return links
 
@@ -207,26 +225,29 @@ def listar_concursos_abertos() -> list[str]:
 # ============================================================
 
 def extrair_cargos_e_dados_do_concurso(url_concurso: str) -> DadosConcursoQConcursos | None:
-    bruto, soup = baixar_html_ou_markdown(url_concurso)
+    bruto, soup = baixar_conteudo_pagina(url_concurso)
 
-    # Coleta todos os links de cargos (/cursos/...) presentes no HTML para passar mastigado à IA
     links_cursos_encontrados = []
     links_pdf_encontrados = []
 
     if soup:
         for a in soup.find_all("a", href=True):
-            href = urljoin("[https://www.qconcursos.com](https://www.qconcursos.com)", a["href"].strip())
+            href = urljoin(DOMINIO_QC, limpar_url(a["href"]))
             texto_link = normalizar_texto(a.get_text(" ", strip=True))
             if "/cursos/" in href:
                 links_cursos_encontrados.append(f"{texto_link} -> {href}")
             elif ".pdf" in href.lower():
                 links_pdf_encontrados.append(href)
 
-        # Remove scripts e styles para enxugar tokens
         for tag in soup(["script", "style", "noscript", "svg", "footer", "nav"]):
             tag.decompose()
         texto_pagina = soup.get_text("\n", strip=True)
     else:
+        # Quando vem pelo Jina Reader em Markdown, captura todos os links /cursos/... e .pdf via Regex
+        for slug_curso in set(re.findall(r"/cursos/[a-zA-Z0-9\-_]+", bruto)):
+            links_cursos_encontrados.append(f"{DOMINIO_QC}{slug_curso}")
+        for pdf_match in set(re.findall(r"https?://[^\s\)\"']+\.pdf", bruto, flags=re.IGNORECASE)):
+            links_pdf_encontrados.append(pdf_match)
         texto_pagina = bruto
 
     prompt = f"""
@@ -238,14 +259,14 @@ Extraia:
 4. 'url_edital_pdf': Link do PDF do edital (se houver).
 5. 'cargos': TODOS os cargos listados para este concurso. Para cada cargo, associe o 'url_curso_cargo' correspondente (link que contém /cursos/...), 'escolaridade', 'vagas' (inteiro) e 'salario' (float em R$).
 
-Links de cargos (/cursos/) detectados no HTML:
+Links de cargos (/cursos/) detectados na página:
 {chr(10).join(links_cursos_encontrados[:80])}
 
 Links de PDF detectados:
 {chr(10).join(links_pdf_encontrados[:10])}
 
-Texto da página do concurso:
-{texto_pagina[:35000]}
+Texto completo da página do concurso:
+{texto_pagina[:40000]}
 """
     try:
         resposta = gemini.models.generate_content(
@@ -270,9 +291,10 @@ Texto da página do concurso:
 # ============================================================
 
 def extrair_edital_verticalizado_do_cargo(url_curso: str, nome_cargo: str) -> MateriasLista:
-    print(f"   📘 Extraindo edital verticalizado do cargo [{nome_cargo}]: {url_curso}")
+    url_curso_limpa = limpar_url(url_curso)
+    print(f"   📘 Extraindo edital verticalizado do cargo [{nome_cargo}]: {url_curso_limpa}")
     try:
-        bruto, soup = baixar_html_ou_markdown(url_curso)
+        bruto, soup = baixar_conteudo_pagina(url_curso_limpa)
         if soup:
             for tag in soup(["script", "style", "noscript", "svg", "footer", "nav"]):
                 tag.decompose()
@@ -280,11 +302,11 @@ def extrair_edital_verticalizado_do_cargo(url_curso: str, nome_cargo: str) -> Ma
         else:
             texto_cargo = bruto
     except Exception as exc:
-        print(f"   ⚠️ Falha ao abrir página do cargo {url_curso}: {exc}")
+        print(f"   ⚠️ Falha ao abrir página do cargo {url_curso_limpa}: {exc}")
         return MateriasLista(materias=[])
 
     prompt = f"""
-Você está lendo a página do cargo '{nome_cargo}' no Qconcursos ({url_curso}), onde consta o EDITAL VERTICALIZADO (conteúdo programático dividido por matérias e tópicos).
+Você está lendo a página do cargo '{nome_cargo}' no Qconcursos ({url_curso_limpa}), onde consta o EDITAL VERTICALIZADO (conteúdo programático dividido por matérias e tópicos).
 
 Instruções:
 1. Extraia TODAS as matérias/disciplinas cobradas para este cargo (ex: Língua Portuguesa, Raciocínio Lógico, Conhecimentos Específicos, etc.).
@@ -292,7 +314,7 @@ Instruções:
 3. Ignore menus do site, propagandas de planos ou depoimentos de alunos. Foque 100% no conteúdo programático do edital e nos dados do cargo (vagas, salário, escolaridade, data da prova) se aparecerem na página.
 
 Conteúdo da página do cargo:
-{texto_cargo[:45000]}
+{texto_cargo[:50000]}
 """
     try:
         resposta = gemini.models.generate_content(
@@ -350,6 +372,7 @@ def salvar_no_banco(payload: dict, materias: list[dict]):
 # ============================================================
 
 def processar_concurso_qconcursos(url_concurso: str):
+    url_concurso = limpar_url(url_concurso)
     print("\n" + "=" * 80)
     print(f"🏛️ Processando Concurso Aberto: {url_concurso}")
     print("=" * 80)
@@ -359,7 +382,6 @@ def processar_concurso_qconcursos(url_concurso: str):
         print("⚠️ Não foi possível extrair os dados básicos deste concurso.")
         return
 
-    # Trava de segurança: nunca salvar "Banca a definir" se por acaso algum previsto escapar
     if "definir" in (dados_concurso.banca or "").lower():
         print(f"⏭️ Ignorando {dados_concurso.orgao}: Banca consta como '{dados_concurso.banca}'.")
         return
@@ -385,9 +407,8 @@ def processar_concurso_qconcursos(url_concurso: str):
         data_prova_final = dados_concurso.data_prova
         link_origem_final = url_concurso
 
-        # Se o cargo tem o link para a página "/cursos/...", entra nela para buscar o edital verticalizado
         if cargo_obj.url_curso_cargo:
-            url_curso_completa = urljoin("[https://www.qconcursos.com](https://www.qconcursos.com)", cargo_obj.url_curso_cargo)
+            url_curso_completa = urljoin(DOMINIO_QC, limpar_url(cargo_obj.url_curso_cargo))
             link_origem_final = url_curso_completa
             detalhes_cargo = extrair_edital_verticalizado_do_cargo(url_curso_completa, nome_cargo)
 
@@ -408,7 +429,9 @@ def processar_concurso_qconcursos(url_concurso: str):
             if not data_prova_final and detalhes_cargo.data_prova_confirmada:
                 data_prova_final = detalhes_cargo.data_prova_confirmada
 
-            time.sleep(1.5)  # Pausa leve entre cada cargo para evitar rate-limit
+            time.sleep(1.5)
+
+        url_pdf_limpa = limpar_url(dados_concurso.url_edital_pdf or "")
 
         payload = {
             "titulo": f"{dados_concurso.orgao} - {nome_cargo}"[:255],
@@ -423,8 +446,8 @@ def processar_concurso_qconcursos(url_concurso: str):
             "status": "Edital Publicado",
             "data_prova": data_prova_final,
             "observacoes": (
-                f"Edital PDF: {dados_concurso.url_edital_pdf}"
-                if dados_concurso.url_edital_pdf
+                f"Edital PDF: {url_pdf_limpa}"
+                if url_pdf_limpa
                 else f"Fonte Qconcursos: {url_concurso}"
             ),
         }
