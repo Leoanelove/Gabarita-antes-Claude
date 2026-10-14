@@ -96,7 +96,7 @@ def listar_concursos_abertos_pci() -> list[dict]:
             continue
         orgao = normalizar_texto(a_tag.get_text(" ", strip=True))
         resumo = normalizar_texto(div_ca.get_text(" ", strip=True))
-        if len(orgao) < 5:
+        if len(orgao) < 5 or "cidades" in orgao.lower():
             continue
         vistas.add(url)
         itens.append({"orgao_capa": orgao, "resumo_capa": resumo, "url": url})
@@ -104,64 +104,64 @@ def listar_concursos_abertos_pci() -> list[dict]:
     print(f"📋 Total de links identificados: {len(itens)}")
     return itens
 
-def extrair_dados_via_regex_html(texto_noticia: str, orgao_capa: str) -> dict:
-    """Extrai informações básicas sem gastar IA, usando puro Python (Regex/BeautifulSoup)."""
+def extrair_cargos_inteligente(soup: BeautifulSoup, orgao_capa: str) -> list[dict]:
+    """Extrai os cargos reais das tabelas da notícia do PCI sem pegar o menu do site."""
+    cargos_encontrados = []
     
-    # Órgão
-    orgao = orgao_capa.split("-")[0].strip() if "-" in orgao_capa else orgao_capa[:100]
-    
-    # Banca
-    banca = "Comissão Própria"
-    match_banca = re.search(r"banca[:\s]+([^\n\.,]+)", texto_noticia, re.IGNORECASE)
-    if match_banca:
-        banca = match_banca.group(1).strip()[:100]
+    # Nome limpo do Órgão
+    orgao_limpo = orgao_capa.split("-")[0].strip() if "-" in orgao_capa else orgao_capa[:100]
+    orgao_limpo = re.sub(r"(Cidades|Vagas|Simulados|Provas|Aulas|Organizadores|Colaborar|Contato|Pesquisar|Nacional).*$", "", orgao_limpo, flags=re.IGNORECASE).strip()
+    if not orgao_limpo:
+        orgao_limpo = "Órgão Público"
 
-    # Salário
-    salario = 0.0
-    match_salario = re.search(r"R\$\s*([\d\.,]+)", texto_noticia)
-    if match_salario:
-        try:
-            salario = float(match_salario.group(1).replace(".", "").replace(",", "."))
-        except ValueError:
-            pass
+    # Varre tabelas da notícia que costumam conter os cargos e salários
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        for row in rows[1:]: # Pula o cabeçalho
+            cols = [normalizar_texto(td.get_text()) for td in row.find_all(["td", "th"])]
+            if cols and len(cols) >= 2:
+                nome_cargo = cols[0]
+                # Filtra lixos de menu
+                if len(nome_cargo) > 3 and not any(palavra in nome_cargo.lower() for palavra in ("total", "cargo", "requisito", "vagas", "salário")):
+                    # Tenta achar salário e vagas nas colunas da linha
+                    vagas = 1
+                    salario = 0.0
+                    for col in cols[1:]:
+                        if "r$" in col.lower():
+                            match_sal = re.search(r"([\d\.,]+)", col)
+                            if match_sal:
+                                try:
+                                    salario = float(match_sal.group(1).replace(".", "").replace(",", "."))
+                                except ValueError:
+                                    pass
+                        elif col.isdigit():
+                            vagas = int(col)
 
-    # Vagas
-    vagas = 0
-    match_vagas = re.search(r"(\d+)\s+vagas", texto_noticia, re.IGNORECASE)
-    if match_vagas:
-        try:
-            vagas = int(match_vagas.group(1))
-        except ValueError:
-            pass
+                    cargos_encontrados.append({
+                        "nome_cargo": nome_cargo[:255],
+                        "escolaridade": "Ensino Superior",
+                        "vagas": vagas,
+                        "salario": salario,
+                        "materias": [
+                            {"nome": "Língua Portuguesa", "peso": 1.0, "topicos": ["Compreensão e interpretação de textos", "Gramática aplicada"]},
+                            {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Legislação específica do cargo", "Atribuições profissionais"]}
+                        ]
+                    })
 
-    # Data da prova
-    data_prova = None
-    match_data = re.search(r"(?:provas em|data da prova)[:\s]+(\d{2}/\d{2}/\d{4})", texto_noticia, re.IGNORECASE)
-    if match_data:
-        partes = match_data.group(1).split("/")
-        if len(partes) == 3:
-            data_prova = f"{partes[2]}-{partes[1]}-{partes[0]}"
-
-    # Cargo principal extraído do título/texto
-    cargo_nome = "Geral / Vários Cargos"
-    match_cargo = re.search(r"cargo[s]?[:\s]+([^\n\.]+)", texto_noticia, re.IGNORECASE)
-    if match_cargo:
-        cargo_nome = normalizar_texto(match_cargo.group(1))[:255]
-
-    return {
-        "orgao": orgao,
-        "banca": banca,
-        "salario": salario,
-        "vagas": vagas,
-        "data_prova": data_prova,
-        "cargos": [{
-            "nome_cargo": cargo_nome,
+    # Se a tabela não foi encontrada ou veio vazia, cria um cargo padrão limpo baseado no título
+    if not cargos_encontrados:
+        cargos_encontrados.append({
+            "nome_cargo": f"Profissional - {orgao_limpo}"[:255],
             "escolaridade": "Ensino Superior",
-            "vagas": vagas,
-            "salario": salario,
-            "materias": [{"nome": "Conhecimentos Básicos", "peso": 1.0, "topicos": ["Língua Portuguesa", "Matemática", "Conhecimentos Gerais"]}]
-        }]
-    }
+            "vagas": 1,
+            "salario": 0.0,
+            "materias": [
+                {"nome": "Conhecimentos Básicos", "peso": 1.0, "topicos": ["Língua Portuguesa", "Noções de Informática"]},
+                {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Matéria específica do cargo"]}
+            ]
+        })
+
+    return orgao_limpo, cargos_encontrados
 
 def salvar_no_banco(payload: dict, materias: list[dict]):
     try:
@@ -177,7 +177,8 @@ def salvar_no_banco(payload: dict, materias: list[dict]):
 
 def processar_item(item: dict) -> bool:
     url = item["url"]
-    print(f"\n👉 Analisando: {item['orgao_capa']}\n🔗 {url}")
+    orgao_capa = item["orgao_capa"]
+    print(f"\n👉 Analisando: {orgao_capa}\n🔗 {url}")
 
     valido, motivo = validar_se_eh_concurso_publico(url, item["resumo_capa"])
     if not valido:
@@ -193,40 +194,37 @@ def processar_item(item: dict) -> bool:
     soup = BeautifulSoup(resp.text, "html.parser")
     h1 = soup.find("h1")
     titulo = normalizar_texto(h1.get_text(" ", strip=True) if h1 else "")
-    texto = normalizar_texto(soup.get_text("\n", strip=True))
 
     valido_t, motivo_t = validar_se_eh_concurso_publico(url, item["resumo_capa"], titulo)
     if not valido_t:
         print(f"↩️ Ignorado ({motivo_t}).")
         return False
 
-    print(f"✅ Concurso confirmado: '{titulo or item['orgao_capa']}'")
+    print(f"✅ Concurso confirmado: '{titulo or orgao_capa}'")
     
-    # Extração 100% gratuita via Python puro (sem IA, sem erro 429, sem erro 503)
-    dados = extrair_dados_via_regex_html(texto, item["orgao_capa"])
-    
-    print(f"✓ Órgão: {dados['orgao']} | Banca: {dados['banca']} | Salário: R$ {dados['salario']} | Vagas: {dados['vagas']}")
+    orgao_limpo, cargos = extrair_cargos_inteligente(soup, orgao_capa)
+    print(f"✓ Órgão limpo: {orgao_limpo} | Cargos extraídos: {len(cargos)}")
 
     salvos = 0
-    for idx, c in enumerate(dados["cargos"][:MAX_CARGOS_POR_CONCURSO], start=1):
+    for idx, c in enumerate(cargos[:MAX_CARGOS_POR_CONCURSO], start=1):
         nome_cargo = normalizar_texto(c["nome_cargo"])
-        if not nome_cargo:
+        if not nome_cargo or "cidades" in nome_cargo.lower():
             continue
         
         mats = [{"nome": m["nome"], "peso": m["peso"], "topicos": m["topicos"]} for m in c["materias"]]
 
         payload = {
-            "titulo": f"{dados['orgao']} - {nome_cargo}"[:255],
-            "orgao": dados["orgao"][:255],
-            "banca": dados["banca"][:100],
+            "titulo": f"{orgao_limpo} - {nome_cargo}"[:255],
+            "orgao": orgao_limpo[:255],
+            "banca": "Comissão Própria",
             "vagas": c["vagas"],
             "salario_maximo": c["salario"],
             "escolaridade": c["escolaridade"][:100],
             "link_origem": url,
             "cargo": nome_cargo[:255],
-            "esfera": identificar_esfera(dados["orgao"])[:50],
+            "esfera": identificar_esfera(orgao_limpo)[:50],
             "status": "Edital Publicado",
-            "data_prova": dados["data_prova"],
+            "data_prova": None,
             "observacoes": f"Fonte PCI Concursos: {url}",
         }
         salvar_no_banco(payload, mats)
