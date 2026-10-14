@@ -7,6 +7,8 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from google import genai
+from google.genai import types
 from supabase import create_client
 
 def limpar_url(u: str) -> str:
@@ -21,9 +23,12 @@ def limpar_url(u: str) -> str:
 
 SUPABASE_URL = limpar_url(os.getenv("SUPABASE_URL", ""))
 SUPABASE_KEY = limpar_url(os.getenv("SUPABASE_SERVICE_KEY", ""))
+GEMINI_API_KEY = limpar_url(os.getenv("GEMINI_API_KEY", ""))
 
 PCI_HOME_URL = "https" + "://" + "www.pciconcursos.com.br/"
 PCI_CONCURSOS_URL = PCI_HOME_URL + "concursos/"
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
@@ -49,6 +54,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Erro: SUPABASE_URL e SUPABASE_SERVICE_KEY são obrigatórios.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+gemini = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 sessao = requests.Session()
 sessao.headers.update(HEADERS_PADRAO)
 
@@ -57,6 +63,13 @@ def normalizar_texto(texto: str | None) -> str:
         return ""
     texto = texto.replace("\xa0", " ")
     return re.sub(r"\s+", " ", texto).strip()
+
+def parse_json_resposta(texto: str):
+    texto = (texto or "").strip()
+    if texto.startswith("```"):
+        texto = re.sub(r"^```(?:json)?\s*", "", texto, flags=re.IGNORECASE)
+        texto = re.sub(r"\s*```$", "", texto)
+    return json.loads(texto)
 
 def identificar_esfera(orgao: str) -> str:
     texto = normalizar_texto(orgao).lower()
@@ -104,26 +117,59 @@ def listar_concursos_abertos_pci() -> list[dict]:
     print(f"📋 Total de links identificados: {len(itens)}")
     return itens
 
-def extrair_cargos_inteligente(soup: BeautifulSoup, orgao_capa: str) -> list[dict]:
-    """Extrai os cargos reais das tabelas da notícia do PCI sem pegar o menu do site."""
+def refinar_materias_com_ia(texto_noticia: str, nome_cargo: str) -> list[dict]:
+    """Usa o Gemini de forma enxuta para estruturar as disciplinas e tópicos reais do cargo."""
+    if not gemini:
+        return [
+            {"nome": "Língua Portuguesa", "peso": 1.0, "topicos": ["Compreensão e interpretação de textos"]},
+            {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Legislação e atribuições do cargo"]}
+        ]
+
+    prompt = f"""
+Com base no texto da notícia do concurso abaixo, extraia o conteúdo programático (disciplinas e tópicos) específico para o cargo: '{nome_cargo}'.
+Retorne um JSON estrito contendo uma lista de objetos com 'nome' (disciplina), 'peso' (1.0 ou 2.0) e 'topicos' (lista de strings com os assuntos).
+
+Texto da notícia:
+{texto_noticia[:8000]}
+"""
+    try:
+        resp = gemini.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+                max_output_tokens=4096,
+            ),
+        )
+        if resp and resp.text:
+            materias = parse_json_resposta(resp.text)
+            if isinstance(materias, list):
+                return materias
+    except Exception as e:
+        print(f"   ⚠️ IA indisponível para este cargo, usando padrão: {e}")
+
+    return [
+        {"nome": "Língua Portuguesa", "peso": 1.0, "topicos": ["Compreensão e interpretação de textos"]},
+        {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Legislação e atribuições do cargo"]}
+    ]
+
+def extrair_cargos_inteligente(soup: BeautifulSoup, orgao_capa: str, texto_noticia: str) -> tuple[str, list[dict]]:
+    """Extrai os cargos reais das tabelas e complementa com as matérias via IA."""
     cargos_encontrados = []
     
-    # Nome limpo do Órgão
     orgao_limpo = orgao_capa.split("-")[0].strip() if "-" in orgao_capa else orgao_capa[:100]
     orgao_limpo = re.sub(r"(Cidades|Vagas|Simulados|Provas|Aulas|Organizadores|Colaborar|Contato|Pesquisar|Nacional).*$", "", orgao_limpo, flags=re.IGNORECASE).strip()
     if not orgao_limpo:
         orgao_limpo = "Órgão Público"
 
-    # Varre tabelas da notícia que costumam conter os cargos e salários
     for table in soup.find_all("table"):
         rows = table.find_all("tr")
-        for row in rows[1:]: # Pula o cabeçalho
+        for row in rows[1:]:
             cols = [normalizar_texto(td.get_text()) for td in row.find_all(["td", "th"])]
             if cols and len(cols) >= 2:
                 nome_cargo = cols[0]
-                # Filtra lixos de menu
                 if len(nome_cargo) > 3 and not any(palavra in nome_cargo.lower() for palavra in ("total", "cargo", "requisito", "vagas", "salário")):
-                    # Tenta achar salário e vagas nas colunas da linha
                     vagas = 1
                     salario = 0.0
                     for col in cols[1:]:
@@ -137,41 +183,39 @@ def extrair_cargos_inteligente(soup: BeautifulSoup, orgao_capa: str) -> list[dic
                         elif col.isdigit():
                             vagas = int(col)
 
+                    # Busca as matérias reais com IA de forma cirúrgica por cargo
+                    print(f"   🤖 Buscando matérias para o cargo: {nome_cargo}...")
+                    materias_cargo = refinar_materias_com_ia(texto_noticia, nome_cargo)
+                    time.sleep(1) # Intervalo seguro contra rate limit
+
                     cargos_encontrados.append({
                         "nome_cargo": nome_cargo[:255],
                         "escolaridade": "Ensino Superior",
                         "vagas": vagas,
                         "salario": salario,
-                        "materias": [
-                            {"nome": "Língua Portuguesa", "peso": 1.0, "topicos": ["Compreensão e interpretação de textos", "Gramática aplicada"]},
-                            {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Legislação específica do cargo", "Atribuições profissionais"]}
-                        ]
+                        "materias": materias_cargo
                     })
 
-    # Se a tabela não foi encontrada ou veio vazia, cria um cargo padrão limpo baseado no título
     if not cargos_encontrados:
+        materias_padrao = refinar_materias_com_ia(texto_noticia, f"Profissional - {orgao_limpo}")
         cargos_encontrados.append({
             "nome_cargo": f"Profissional - {orgao_limpo}"[:255],
             "escolaridade": "Ensino Superior",
             "vagas": 1,
             "salario": 0.0,
-            "materias": [
-                {"nome": "Conhecimentos Básicos", "peso": 1.0, "topicos": ["Língua Portuguesa", "Noções de Informática"]},
-                {"nome": "Conhecimentos Específicos", "peso": 2.0, "topicos": ["Matéria específica do cargo"]}
-            ]
+            "materias": materias_padrao
         })
 
     return orgao_limpo, cargos_encontrados
 
 def salvar_no_banco(payload: dict, materias: list[dict]):
     try:
-        resp = supabase.table("editais").select("id").ilike("orgao", f"%{payload['orgao'][:50]}%").ilike("cargo", f"%{payload['cargo'][:50]}%").limit(1).execute()
-        if resp.data:
-            supabase.table("editais").update({**payload, "materias": materias}).eq("id", resp.data[0]["id"]).execute()
-            print(f"   🔄 Atualizado no Supabase: {payload['orgao']} -> {payload['cargo']}")
-        else:
-            supabase.table("editais").insert({**payload, "materias": materias}).execute()
-            print(f"   🆕 Inserido no Supabase: {payload['orgao']} -> {payload['cargo']} ({len(materias)} matérias)")
+        dados_completos = {**payload, "materias": materias}
+        supabase.table("editais").upsert(
+            dados_completos, 
+            on_conflict="link_origem,cargo"
+        ).execute()
+        print(f"   💾 Sincronizado no Supabase: {payload['orgao']} -> {payload['cargo']} ({len(materias)} matérias)")
     except Exception as exc:
         print(f"   ❌ Erro ao salvar no Supabase: {exc}")
 
@@ -194,6 +238,7 @@ def processar_item(item: dict) -> bool:
     soup = BeautifulSoup(resp.text, "html.parser")
     h1 = soup.find("h1")
     titulo = normalizar_texto(h1.get_text(" ", strip=True) if h1 else "")
+    texto = normalizar_texto(soup.get_text("\n", strip=True))
 
     valido_t, motivo_t = validar_se_eh_concurso_publico(url, item["resumo_capa"], titulo)
     if not valido_t:
@@ -202,7 +247,7 @@ def processar_item(item: dict) -> bool:
 
     print(f"✅ Concurso confirmado: '{titulo or orgao_capa}'")
     
-    orgao_limpo, cargos = extrair_cargos_inteligente(soup, orgao_capa)
+    orgao_limpo, cargos = extrair_cargos_inteligente(soup, orgao_capa, texto)
     print(f"✓ Órgão limpo: {orgao_limpo} | Cargos extraídos: {len(cargos)}")
 
     salvos = 0
@@ -211,7 +256,7 @@ def processar_item(item: dict) -> bool:
         if not nome_cargo or "cidades" in nome_cargo.lower():
             continue
         
-        mats = [{"nome": m["nome"], "peso": m["peso"], "topicos": m["topicos"]} for m in c["materias"]]
+        mats = [{"nome": m.get("nome", "Geral"), "peso": m.get("peso", 1.0), "topicos": [t.strip() for t in m.get("topicos", []) if t]} for m in c["materias"]]
 
         payload = {
             "titulo": f"{orgao_limpo} - {nome_cargo}"[:255],
