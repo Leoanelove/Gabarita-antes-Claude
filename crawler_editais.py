@@ -42,8 +42,8 @@ PCI_CONCURSOS_URL = limpar_url(
     os.getenv("PCI_URL", PROTO + "www.pciconcursos.com.br/concursos/")
 )
 
-_modelo_env = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_MODEL = "gemini-2.5-flash" if "3.8" in _modelo_env else _modelo_env
+# Atualizado para o modelo exigido pela API atual do Google
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
@@ -229,11 +229,15 @@ def listar_concursos_abertos_pci() -> list[dict]:
 
 
 # ============================================================
-# NÍVEL 2: LOCALIZAR LINKS VÁLIDOS DE EDITAL (IGNORANDO JAVASCRIPT)
+# NÍVEL 2: LOCALIZAR LINKS DE EDITAL EXCLUSIVOS DA PÁGINA
 # ============================================================
 
 def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
     links_encontrados = []
+
+    # Remove sidebar/notícias relacionadas para não capturar links de outros concursos
+    for sidebar in soup.find_all(["aside", "div"], class_=re.compile("relacionad|sidebar|footer|menu", re.I)):
+        sidebar.decompose()
 
     def adicionar(u: str):
         u_limpa = limpar_url(u)
@@ -246,7 +250,7 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
         if u_full not in links_encontrados:
             links_encontrados.append(u_full)
 
-    # 1. Procura tags <a> com palavras-chave de edital
+    # 1. Procura tags <a> com palavras-chave de edital no corpo principal
     for a in soup.find_all("a", href=True):
         href = a["href"]
         texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
@@ -257,14 +261,14 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
         elif ".pdf" in href_low:
             adicionar(href)
 
-    # 2. Se não achou link específico, pega links externos de inscrição/banca
+    # 2. Se não achou link específico, pega links externos de inscrição/banca citados no texto principal
     if not links_encontrados:
         for a in soup.find_all("a", href=True):
             href = a["href"]
             if "pciconcursos.com.br" not in href and "http" in href:
                 adicionar(href)
 
-    # 3. Fallback absoluto: Se nenhum link externo/PDF for válido, usa a própria página da notícia do PCI
+    # 3. Fallback absoluto: usa a própria página da notícia do PCI
     if not links_encontrados:
         links_encontrados.append(url_noticia)
 
@@ -336,7 +340,7 @@ REGRAS OBRIGATÓRIAS:
             f"Texto da notícia:\n{texto_noticia[:15000]}\n\n{prompt}"
         ]
 
-        print("🤖 Extraindo cargos, vagas, salários e conteúdo programático com Gemini...")
+        print(f"🤖 Extraindo cargos, vagas, salários e conteúdo programático com Gemini ({GEMINI_MODEL})...")
         resposta = gemini.models.generate_content(
             model=GEMINI_MODEL,
             contents=conteudos,
