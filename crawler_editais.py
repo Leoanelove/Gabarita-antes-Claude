@@ -365,7 +365,15 @@ REGRAS CRÍTICAS:
 # ============================================================
 
 def baixar_pagina(url: str) -> requests.Response:
-    resposta = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+    headers = {
+        **HEADERS,
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "*/*;q=0.8"
+        ),
+        "Referer": ESTRATEGIA_URL,
+    }
+    resposta = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
     resposta.raise_for_status()
     return resposta
 
@@ -753,7 +761,8 @@ def listar_links_concursos() -> list[str]:
     for a in soup.find_all("a", href=True):
         href = urljoin(ESTRATEGIA_URL, a["href"])
         if "/portal/concurso-" in href:
-            links.add(href.rstrip("/"))
+            # Mantém a barra final, como o site usa na listagem.
+            links.add(href.split("#")[0].rstrip("/") + "/")
 
     return sorted(links)
 
