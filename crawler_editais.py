@@ -37,18 +37,44 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 PROTO = "https" + "://"
-PCI_URL = limpar_url(
+PCI_HOME_URL = PROTO + "www.pciconcursos.com.br/"
+# Página geral de concursos (engloba abertos, inscrições em andamento, etc.)
+PCI_CONCURSOS_URL = limpar_url(
     os.getenv("PCI_URL", PROTO + "www.pciconcursos.com.br/concursos/")
 )
 
 _modelo_env = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_MODEL = "gemini-2.5-flash" if "3.8" in _modelo_env else _modelo_env
 
-MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "1"))
+MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "40"))
 PDF_TIMEOUT = int(os.getenv("PDF_TIMEOUT", "90"))
 SLEEP_SECONDS = float(os.getenv("SLEEP_SECONDS", "2"))
+
+# Termos para ignorar processos seletivos temporários, estágio, etc.
+TERMOS_NAO_CONCURSO = (
+    "processo-seletivo",
+    "processo seletivo",
+    "seletivo simplificado",
+    "temporario",
+    "temporário",
+    "temporarios",
+    "temporários",
+    "oficiais-temporarios",
+    "servico-militar-voluntario",
+    "serviço militar voluntário",
+    "estagiario",
+    "estagiário",
+    "estagio",
+    "estágio",
+    "credenciamento",
+    "residencia",
+    "residência",
+    "bolsista",
+    "professor-substituto",
+    "professor substituto",
+)
 
 HEADERS_PADRAO = {
     "User-Agent": (
@@ -74,44 +100,48 @@ sessao.headers.update(HEADERS_PADRAO)
 
 
 # ============================================================
-# SCHEMAS PYDANTIC (SEPARAÇÃO POR CARGO + MATÉRIAS DO CARGO)
+# SCHEMAS PYDANTIC
 # ============================================================
 
 class Materia(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome: str = Field(description="Nome formal da disciplina (ex: Língua Portuguesa, Conhecimentos Específicos).")
+    nome: str = Field(description="Nome formal da disciplina (ex: Língua Portuguesa, Legislação Específica).")
     peso: float | None = Field(default=1.0)
     topicos: list[str] = Field(
         default_factory=list,
-        description="Lista de tópicos/assuntos cobrados dentro desta disciplina para este cargo.",
+        description="Lista detalhada de tópicos/assuntos cobrados dentro desta disciplina para este cargo.",
     )
 
 
 class CargoDetalhado(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    nome_cargo: str = Field(description="Nome específico do cargo (ex: Guarda Civil Municipal, Analista Administrativo).")
-    escolaridade: str = Field(default="Ensino Superior", description="Ex: Ensino Fundamental, Ensino Médio, Ensino Técnico, Ensino Superior.")
-    vagas: int = Field(default=0, description="Quantidade de vagas para este cargo (soma de imediatas + CR se houver).")
-    salario: float = Field(default=0.0, description="Salário/remuneração inicial deste cargo em reais (ex: 3450.00).")
+    nome_cargo: str = Field(description="Nome específico do cargo (ex: Auxiliar Administrativo, Fiscal Biólogo).")
+    escolaridade: str = Field(default="Ensino Superior", description="Ensino Fundamental, Ensino Médio, Ensino Técnico ou Ensino Superior.")
+    vagas: int = Field(default=0, description="Quantidade total de vagas para este cargo (imediatas + CR se informado).")
+    salario: float = Field(default=0.0, description="Salário/remuneração inicial deste cargo em reais (ex: 7181.00).")
     materias: list[Materia] = Field(
         default_factory=list,
-        description="Conteúdo programático completo deste cargo (Conhecimentos Básicos comuns + Conhecimentos Específicos deste cargo).",
+        description="Conteúdo programático completo deste cargo (unindo Conhecimentos Básicos/Gerais + Conhecimentos Específicos).",
     )
 
 
 class EditalCompletoExtraido(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    orgao: str = Field(description="Nome oficial do órgão público (ex: Prefeitura de Sobral - CE).")
-    banca: str = Field(description="Nome da banca organizadora ou comissão do certame.")
+    eh_concurso_publico: bool = Field(
+        default=True,
+        description="True se for Concurso Público efetivo/estatutário/CLT. False se for Processo Seletivo Temporário ou Estágio.",
+    )
+    orgao: str = Field(description="Nome oficial do órgão público (ex: CRBio-01 - Conselho Regional de Biologia da 1ª Região).")
+    banca: str = Field(description="Nome da banca organizadora (ex: Vunesp, Quadrix, Cebraspe, FGV, IBFC).")
     data_prova: str | None = Field(default=None, description="Data da prova objetiva no formato YYYY-MM-DD, se constar.")
     cargos: list[CargoDetalhado] = Field(
         default_factory=list,
-        description="Lista de todos os cargos abertos neste edital, cada um com suas vagas, salário e conteúdo programático.",
+        description="Lista de todos os cargos abertos neste edital, cada um com suas vagas, salário e conteúdo programático separado.",
     )
 
 
 # ============================================================
-# FUNÇÕES UTILITÁRIAS
+# FUNÇÕES UTILITÁRIAS E VALIDAÇÃO
 # ============================================================
 
 def normalizar_texto(texto: str | None) -> str:
@@ -138,72 +168,119 @@ def identificar_esfera(orgao: str) -> str:
     return "Federal"
 
 
+def validar_se_eh_concurso_publico(url_noticia: str, texto_capa: str = "", titulo_noticia: str = "") -> tuple[bool, str]:
+    slug = url_noticia.lower()
+    combinado = f"{slug} {texto_capa.lower()} {titulo_noticia.lower()}"
+
+    for termo in TERMOS_NAO_CONCURSO:
+        if termo in slug or termo in titulo_noticia.lower():
+            return False, f"Identificado como Processo Seletivo/Temporário ('{termo}')"
+
+    for termo_cancel in ("-suspende-", "-cancela-", "-anula-"):
+        if termo_cancel in slug:
+            return False, f"Notícia de suspensão/cancelamento ('{termo_cancel}')"
+
+    if titulo_noticia and "concurso" not in combinado:
+        return False, "O título não indica ser um Concurso Público"
+
+    return True, "OK"
+
+
 # ============================================================
-# NÍVEL 1: LISTAR CONCURSOS ABERTOS NO PCI CONCURSOS (SEM 403!)
+# NÍVEL 1: LISTAR TODOS OS CONCURSOS (ABERTOS, EM ANDAMENTO, ETC.)
 # ============================================================
 
-def listar_concursos_abertos_pci() -> list[str]:
-    print(f"🔎 Buscando editais abertos em: {PCI_URL}")
-    resp = sessao.get(PCI_URL, timeout=REQUEST_TIMEOUT)
+def listar_concursos_abertos_pci() -> list[dict]:
+    print(f"🏠 [Passo 1] Acessando página inicial: {PCI_HOME_URL}")
+    sessao.get(PCI_HOME_URL, timeout=REQUEST_TIMEOUT)
+
+    print(f"🔎 [Passo 2] Acessando listagem geral de concursos em andamento: {PCI_CONCURSOS_URL}")
+    resp = sessao.get(PCI_CONCURSOS_URL, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    links = []
+    itens_lista = []
+    urls_vistas = set()
 
-    # No PCI Concursos, cada concurso aberto fica em uma div class="ca" com link para /noticias/...
-    for div_ca in soup.select("div.ca"):
-        a_tag = div_ca.find("a", href=True)
-        if a_tag:
-            href = limpar_url(a_tag["href"])
-            url_completa = urljoin(PCI_URL, href)
-            if "/noticias/" in url_completa and url_completa not in links:
-                links.append(url_completa)
+    # Varre blocos de concursos na página (div.ca, tabelas e listas de links)
+    seletores = ["div.ca", "table tr", "ul.list li", "div.es", "div.estados"]
+    
+    for seletor in seletores:
+        for elemento in soup.select(seletor):
+            for a_tag in elemento.find_all("a", href=True):
+                href = limpar_url(a_tag["href"])
+                url_completa = urljoin(PCI_CONCURSOS_URL, href)
+                
+                # Deve ser link de notícia do PCI e não pode estar duplicado
+                if "/noticias/" not in url_completa or url_completa in urls_vistas:
+                    continue
 
-    # Fallback caso a classe mude: pega todos os links de notícias da página de Concursos Abertos
-    if not links:
-        for a_tag in soup.find_all("a", href=True):
-            href = limpar_url(a_tag["href"])
-            url_completa = urljoin(PCI_URL, href)
-            if "pciconcursos.com.br/noticias/" in url_completa and url_completa not in links:
-                links.append(url_completa)
+                nome_orgao_capa = normalizar_texto(a_tag.get_text(" ", strip=True))
+                resumo_capa = normalizar_texto(elemento.get_text(" ", strip=True))
 
-    return links
+                # Ignora links irrelevantes de rodapé ou navegação
+                if len(nome_orgao_capa) < 5 or "concursos" in nome_orgao_capa.lower() and len(nome_orgao_capa) < 15:
+                    continue
+
+                urls_vistas.add(url_completa)
+                itens_lista.append({
+                    "orgao_capa": nome_orgao_capa,
+                    "resumo_capa": resumo_capa,
+                    "url": url_completa,
+                })
+
+    print(f"📋 Total de links de concursos identificados na listagem: {len(itens_lista)}")
+    return itens_lista
 
 
 # ============================================================
-# NÍVEL 2: CAPTURAR OS PDFS DO EDITAL NA PÁGINA DA NOTÍCIA
+# NÍVEL 2: LOCALIZAR O EDITAL (PDF) DENTRO DA PÁGINA
 # ============================================================
 
-def obter_pdfs_do_concurso(soup: BeautifulSoup, url_noticia: str) -> list[str]:
-    pdfs = []
-    for a in soup.find_all("a", href=True):
-        href = limpar_url(a["href"])
-        texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
-        href_low = href.lower()
+def obter_pdfs_do_concurso(html_bruto: str, soup: BeautifulSoup, url_noticia: str) -> list[str]:
+    pdfs_edital = []
+    pdfs_anexos = []
 
-        if ".pdf" in href_low:
-            # Ignora provas antigas ou manuais irrelevantes
-            if any(ig in href_low for ig in ("prova", "gabarito", "termos", "privacidade")):
-                continue
-            url_pdf = urljoin(url_noticia, href)
-            # Prioriza links que contenham "edital", "abertura" ou "anexo"
-            if any(p in href_low or p in texto for p in ("edital", "abertura", "anexo", "retifica")):
-                pdfs.insert(0, url_pdf)
-            else:
-                pdfs.append(url_pdf)
+    def registrar_pdf(url_candidata: str, contexto: str = ""):
+        u = limpar_url(url_candidata)
+        if not u:
+            return
+        u_full = urljoin(url_noticia, u)
+        u_low = u_full.lower()
+        ctx_low = contexto.lower()
 
-    # Remove duplicados mantendo a ordem
-    return list(dict.fromkeys(pdfs))
+        if any(ig in u_low for ig in ("prova", "gabarito", "termos", "privacidade", "apostila", "simulado")):
+            return
+
+        if any(p in u_low or p in ctx_low for p in ("edital", "abertura", "completo")):
+            if u_full not in pdfs_edital:
+                pdfs_edital.append(u_full)
+        else:
+            if u_full not in pdfs_anexos and u_full not in pdfs_edital:
+                pdfs_anexos.append(u_full)
+
+    for tag in soup.find_all(["a", "li", "div", "span"]):
+        texto_tag = normalizar_texto(tag.get_text(" ", strip=True))
+        for attr in ("href", "data-url", "data-href", "src"):
+            val = tag.get(attr)
+            if isinstance(val, str) and ".pdf" in val.lower():
+                registrar_pdf(val, texto_tag)
+
+    for match in re.findall(r"https?://[^\s\"'<>]+?\.pdf", html_bruto, flags=re.IGNORECASE):
+        registrar_pdf(match, match)
+
+    return pdfs_edital + pdfs_anexos
 
 
 def baixar_pdf_temporario(pdf_url: str) -> str | None:
     try:
         print(f"📥 Baixando PDF oficial do edital: {pdf_url}")
-        resp = sessao.get(pdf_url, timeout=PDF_TIMEOUT, allow_redirects=True)
+        headers_pdf = {**HEADERS_PADRAO, "Referer": PCI_CONCURSOS_URL}
+        resp = sessao.get(pdf_url, headers=headers_pdf, timeout=PDF_TIMEOUT, allow_redirects=True)
         resp.raise_for_status()
 
         if not resp.content[:1024].lstrip().startswith(b"%PDF"):
-            print("⚠️ O arquivo baixado não é um PDF válido.")
+            print("⚠️ O link retornado não é um arquivo PDF válido.")
             return None
 
         arq = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
@@ -217,29 +294,32 @@ def baixar_pdf_temporario(pdf_url: str) -> str | None:
 
 
 # ============================================================
-# NÍVEL 3: EXTRAÇÃO COMPLETA POR CARGO VIA GEMINI 2.5 FLASH
+# NÍVEL 3: EXTRAIR VAGAS, CARGOS E CONTEÚDO PROGRAMÁTICO (GEMINI)
 # ============================================================
 
-def extrair_cargos_e_materias_com_ia(caminhos_pdf: list[str], texto_noticia: str) -> EditalCompletoExtraido | None:
-    prompt = """
+def extrair_cargos_e_materias_com_ia(caminhos_pdf: list[str], texto_noticia: str, resumo_capa: str) -> EditalCompletoExtraido | None:
+    prompt = f"""
 Você é um especialista em análise de Editais de Concursos Públicos para a plataforma Gabarita PRO.
-Analise a notícia e o(s) PDF(s) oficial(is) do Edital em anexo e extraia os dados estruturados:
+Analise os dados da notícia e o(s) PDF(s) oficial(is) do Edital em anexo.
+
+Dados da listagem: {resumo_capa}
 
 REGRAS OBRIGATÓRIAS:
-1. 'orgao': Nome limpo do órgão público (ex: Prefeitura de Sobral - CE).
-2. 'banca': Nome da banca organizadora (se o concurso for organizado pela própria prefeitura/órgão, coloque 'Comissão Própria'). NUNCA coloque 'A definir'.
-3. 'data_prova': Data da prova objetiva no formato YYYY-MM-DD (se houver).
-4. 'cargos': Desmembre CADA CARGO do edital em um item separado na lista (máximo de 20 cargos principais).
-5. Para CADA cargo, preencha:
-   - 'nome_cargo': Nome exato do cargo/função.
+1. 'eh_concurso_publico': Marque True se for um Concurso Público efetivo. Se o PDF for apenas de Processo Seletivo Simplificado/Temporário ou Estágio, marque False.
+2. 'orgao': Nome limpo do órgão público (ex: CRBio-01 - Conselho Regional de Biologia da 1ª Região).
+3. 'banca': Nome da banca organizadora (ex: Vunesp, Quadrix, Cebraspe, FGV, IBFC).
+4. 'data_prova': Data da prova objetiva no formato YYYY-MM-DD (se houver).
+5. 'cargos': Crie um item separado para CADA CARGO previsto no edital.
+6. Para CADA cargo, extraia:
+   - 'nome_cargo': Nome exato do cargo.
    - 'escolaridade': Ensino Fundamental, Ensino Médio, Ensino Técnico ou Ensino Superior.
-   - 'vagas': Total de vagas numéricas para este cargo.
-   - 'salario': Valor numérico da remuneração/salário (ex: 3500.00).
-   - 'materias': Lista completa de disciplinas cobradas PARA ESTE CARGO, unindo as matérias de Conhecimentos Básicos (comuns) + Conhecimentos Específicos daquele cargo, com todos os tópicos detalhados de cada matéria!
+   - 'vagas': Total de vagas numéricas para este cargo (se for apenas Cadastro de Reserva, coloque 0).
+   - 'salario': Valor numérico do salário inicial deste cargo em reais (ex: 7181.00).
+   - 'materias': Extraia TODO o CONTEÚDO PROGRAMÁTICO deste cargo! Una as disciplinas de Conhecimentos Básicos/Gerais (comuns) + Conhecimentos Específicos daquele cargo, listando cada matéria e todos os seus tópicos separados dentro de 'topicos'.
 """
     arquivos_gemini = []
     try:
-        for path in caminhos_pdf[:2]:  # Envia até 2 PDFs (ex: Edital de Abertura + Anexo de Conteúdo Programático)
+        for path in caminhos_pdf[:2]:
             if path and os.path.exists(path):
                 up = gemini.files.upload(file=path, config={"mime_type": "application/pdf"})
                 for _ in range(35):
@@ -250,9 +330,9 @@ REGRAS OBRIGATÓRIAS:
                     up = gemini.files.get(name=up.name)
                 arquivos_gemini.append(up)
 
-        conteudos = [*arquivos_gemini, f"Resumo da notícia:\n{texto_noticia[:15000]}\n\n{prompt}"]
+        conteudos = [*arquivos_gemini, f"Texto da notícia:\n{texto_noticia[:15000]}\n\n{prompt}"]
 
-        print("🤖 Analisando Edital com Gemini e separando cargos + conteúdos programáticos...")
+        print("🤖 Extraindo cargos, vagas, salários e conteúdo programático do Edital com Gemini...")
         resposta = gemini.models.generate_content(
             model=GEMINI_MODEL,
             contents=conteudos,
@@ -312,28 +392,47 @@ def salvar_no_banco(payload: dict, materias: list[dict]):
 
 
 # ============================================================
-# PROCESSAMENTO DE CADA CONCURSO ABERTO
+# EXECUÇÃO DO ROBÔ
 # ============================================================
 
-def processar_concurso(url_noticia: str):
+def processar_item_da_lista(item: dict) -> bool:
+    url_noticia = item["url"]
+    orgao_capa = item["orgao_capa"]
+    resumo_capa = item["resumo_capa"]
+
     print("\n" + "=" * 80)
-    print(f"🌐 Processando Concurso Aberto: {url_noticia}")
-    print("=" * 80)
+    print(f"👉 Analisando item: {orgao_capa}")
+    print(f"🔗 URL: {url_noticia}")
+
+    valido_url, motivo_url = validar_se_eh_concurso_publico(url_noticia, resumo_capa)
+    if not valido_url:
+        print(f"↩️ [Ignorado] {motivo_url}. Passando para o próximo...")
+        return False
 
     try:
         resp = sessao.get(url_noticia, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
     except Exception as exc:
-        print(f"❌ Falha ao abrir notícia ({url_noticia}): {exc}")
-        return
+        print(f"❌ Falha ao abrir página ({url_noticia}): {exc}. Passando para o próximo...")
+        return False
 
     soup = BeautifulSoup(resp.text, "html.parser")
+    h1_tag = soup.find("h1")
+    titulo_noticia = normalizar_texto(h1_tag.get_text(" ", strip=True) if h1_tag else "")
     texto_noticia = normalizar_texto(soup.get_text("\n", strip=True))
 
-    urls_pdfs = obter_pdfs_do_concurso(soup, url_noticia)
+    valido_titulo, motivo_titulo = validar_se_eh_concurso_publico(url_noticia, resumo_capa, titulo_noticia)
+    if not valido_titulo:
+        print(f"↩️ [Ignorado] ('{titulo_noticia}' -> {motivo_titulo}). Passando para o próximo...")
+        return False
+
+    urls_pdfs = obter_pdfs_do_concurso(resp.text, soup, url_noticia)
     if not urls_pdfs:
-        print("⏭️ Ignorado: Nenhum PDF de edital encontrado nesta página.")
-        return
+        print("↩️ [Ignorado] Nenhum PDF de edital encontrado nesta página. Passando para o próximo...")
+        return False
+
+    print(f"✅ Concurso Público confirmado: '{titulo_noticia}'")
+    print(f"📎 Edital PDF localizado: {urls_pdfs[0]}")
 
     caminhos_pdf_baixados = []
     for pdf_url in urls_pdfs[:2]:
@@ -342,18 +441,27 @@ def processar_concurso(url_noticia: str):
             caminhos_pdf_baixados.append(caminho)
 
     if not caminhos_pdf_baixados:
-        print("⏭️ Ignorado: Não foi possível baixar o PDF oficial do edital.")
-        return
+        print("↩️ [Ignorado] Não foi possível baixar o PDF. Passando para o próximo...")
+        return False
 
     try:
-        edital_extraido = extrair_cargos_e_materias_com_ia(caminhos_pdf_baixados, texto_noticia)
-        if not edital_extraido or not edital_extraido.cargos:
-            print("⚠️ A IA não retornou cargos válidos para este edital.")
-            return
+        edital_extraido = extrair_cargos_e_materias_com_ia(caminhos_pdf_baixados, texto_noticia, resumo_capa)
+        if not edital_extraido:
+            print("↩️ [Ignorado] Falha ao extrair dados do PDF. Passando para o próximo...")
+            return False
+
+        if not edital_extraido.eh_concurso_publico:
+            print("↩️ [Ignorado] A leitura do PDF indicou ser Processo Seletivo Temporário. Passando para o próximo...")
+            return False
+
+        if not edital_extraido.cargos:
+            print("↩️ [Ignorado] Nenhum cargo identificado no edital. Passando para o próximo...")
+            return False
 
         print(f"✓ Órgão: {edital_extraido.orgao} | Banca: {edital_extraido.banca} | Prova: {edital_extraido.data_prova}")
-        print(f"✓ Cargos extraídos individualmente: {len(edital_extraido.cargos)}")
+        print(f"✓ Cargos encontrados no edital: {len(edital_extraido.cargos)}")
 
+        cargos_salvos = 0
         for idx, cargo_obj in enumerate(edital_extraido.cargos[:MAX_CARGOS_POR_CONCURSO], start=1):
             nome_cargo = normalizar_texto(cargo_obj.nome_cargo)
             if not nome_cargo:
@@ -367,6 +475,10 @@ def processar_concurso(url_noticia: str):
                         "peso": m.peso or 1.0,
                         "topicos": [t.strip() for t in m.topicos if t and t.strip()],
                     })
+
+            if not materias_formatadas:
+                print(f"   ⚠️ Cargo '{nome_cargo}' sem conteúdo programático detalhado no PDF, pulando linha...")
+                continue
 
             payload = {
                 "titulo": f"{edital_extraido.orgao} - {nome_cargo}"[:255],
@@ -383,8 +495,14 @@ def processar_concurso(url_noticia: str):
                 "observacoes": f"Edital PDF: {urls_pdfs[0]}",
             }
 
-            print(f"➡️ [{idx}/{len(edital_extraido.cargos)}] Salvando cargo: {nome_cargo} | Vagas: {cargo_obj.vagas} | R$ {cargo_obj.salario} | {len(materias_formatadas)} matérias")
+            print(
+                f"➡️ [{idx}/{len(edital_extraido.cargos)}] Salvando linha para o cargo: {nome_cargo} "
+                f"| Vagas: {cargo_obj.vagas} | Salário: R$ {cargo_obj.salario} | {len(materias_formatadas)} matérias"
+            )
             salvar_no_banco(payload, materias_formatadas)
+            cargos_salvos += 1
+
+        return cargos_salvos > 0
 
     finally:
         for path in caminhos_pdf_baixados:
@@ -396,19 +514,32 @@ def processar_concurso(url_noticia: str):
 
 
 def main():
-    links = listar_concursos_abertos_pci()
-    print(f"📋 Concursos ABERTOS encontrados no PCI Concursos: {len(links)}")
-
-    if not links:
-        print("❌ Nenhum link encontrado.")
+    itens = listar_concursos_abertos_pci()
+    if not itens:
+        print("❌ Nenhum item encontrado na listagem.")
         return 1
 
-    for link in links[:MAX_CONCURSOS]:
-        processar_concurso(link)
+    concursos_salvos = 0
+    verificados = 0
+    limite_verificacao = max(MAX_CONCURSOS * 20, 60)
+
+    for item in itens:
+        if concursos_salvos >= MAX_CONCURSOS:
+            break
+        if verificados >= limite_verificacao:
+            print(f"⚠️ Limite de segurança atingido ({limite_verificacao} itens verificados).")
+            break
+
+        verificados += 1
+        sucesso = processar_item_da_lista(item)
+        if sucesso:
+            concursos_salvos += 1
+            print(f"\n🎯 Progresso: {concursos_salvos}/{MAX_CONCURSOS} Concursos Públicos completos salvos no Supabase!")
+
         time.sleep(SLEEP_SECONDS)
 
-    print("\n🏁 Execução concluída com sucesso!")
-    return 0
+    print(f"\n🏁 Execução concluída! Total de Concursos Públicos processados: {concursos_salvos}/{MAX_CONCURSOS}")
+    return 0 if concursos_salvos > 0 else 1
 
 
 if __name__ == "__main__":
