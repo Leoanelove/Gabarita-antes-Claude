@@ -42,8 +42,8 @@ PCI_CONCURSOS_URL = limpar_url(
     os.getenv("PCI_URL", PROTO + "www.pciconcursos.com.br/concursos/")
 )
 
-# Usa o modelo padrão mais estável da API
-GEMINI_MODEL = "gemini-2.5-flash"
+# Força o modelo exigido pela API atual, ignorando qualquer env antigo
+GEMINI_MODEL = "gemini-3.8-flash"
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
@@ -235,11 +235,9 @@ def listar_concursos_abertos_pci() -> list[dict]:
 def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
     links_encontrados = []
 
-    # Remove qualquer barra lateral ou rodapé para evitar pegar links de outros concursos
     for area_lixo in soup.find_all(["aside", "div", "section"], class_=re.compile("relacionad|sidebar|footer|menu|publicidade|ads", re.I)):
         area_lixo.decompose()
 
-    # O corpo principal da notícia no PCI fica tipicamente dentro de article ou div.ce / div.text
     corpo_noticia = soup.find("article") or soup.find("div", class_=re.compile("noticia|conteudo|texto", re.I)) or soup
 
     def adicionar(u: str):
@@ -301,7 +299,7 @@ def baixar_conteudo_edital(link_edital: str) -> str | None:
 
 
 # ============================================================
-# NÍVEL 3: EXTRAÇÃO COM RETRY AUTOMÁTICO (CONTRA ERRO 503)
+# NÍVEL 3: EXTRAÇÃO COM RETRY AUTOMÁTICO
 # ============================================================
 
 def extrair_cargos_e_materias_com_ia(caminho_arquivo: str, texto_noticia: str, resumo_capa: str) -> EditalCompletoExtraido | None:
@@ -341,7 +339,6 @@ REGRAS OBRIGATÓRIAS:
             f"Texto da notícia do concurso:\n{texto_noticia[:15000]}\n\n{prompt}"
         ]
 
-        # Sistema de Tentativa Automática (Retry) para contornar erro 503 de alta demanda
         resposta = None
         for tentativa in range(1, 4):
             try:
@@ -358,8 +355,8 @@ REGRAS OBRIGATÓRIAS:
                 )
                 break
             except Exception as e:
-                if "503" in str(e) and tentativa < 3:
-                    print(f"⚠️ Servidor ocupado (503). Aguardando 6 segundos para tentar novamente...")
+                if "503" in str(e) or "429" in str(e) and tentativa < 3:
+                    print(f"⚠️ Servidor ocupado. Aguardando 6 segundos para tentar novamente...")
                     time.sleep(6)
                 else:
                     raise e
