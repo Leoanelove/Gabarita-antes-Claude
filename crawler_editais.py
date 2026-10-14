@@ -42,8 +42,8 @@ PCI_CONCURSOS_URL = limpar_url(
     os.getenv("PCI_URL", PROTO + "www.pciconcursos.com.br/concursos/")
 )
 
-# Força o modelo ativo atual da API do Google, ignorando valores legados
-GEMINI_MODEL = "gemini-3.5-flash"
+# Usa o modelo padrão mais estável da API
+GEMINI_MODEL = "gemini-2.5-flash"
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
@@ -229,14 +229,18 @@ def listar_concursos_abertos_pci() -> list[dict]:
 
 
 # ============================================================
-# NÍVEL 2: LOCALIZAR LINKS DE EDITAL EXCLUSIVOS DA PÁGINA
+# NÍVEL 2: EXTRAIR LINKS EXCLUSIVOS DA NOTÍCIA (SEM SIDEBAR)
 # ============================================================
 
 def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
     links_encontrados = []
 
-    for sidebar in soup.find_all(["aside", "div"], class_=re.compile("relacionad|sidebar|footer|menu", re.I)):
-        sidebar.decompose()
+    # Remove qualquer barra lateral ou rodapé para evitar pegar links de outros concursos
+    for area_lixo in soup.find_all(["aside", "div", "section"], class_=re.compile("relacionad|sidebar|footer|menu|publicidade|ads", re.I)):
+        area_lixo.decompose()
+
+    # O corpo principal da notícia no PCI fica tipicamente dentro de article ou div.ce / div.text
+    corpo_noticia = soup.find("article") or soup.find("div", class_=re.compile("noticia|conteudo|texto", re.I)) or soup
 
     def adicionar(u: str):
         u_limpa = limpar_url(u)
@@ -244,27 +248,28 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
             return
         u_full = urljoin(url_noticia, u_limpa)
         u_low = u_full.lower()
-        if any(ig in u_low for ig in ("prova", "gabarito", "termos", "privacidade", "apostila", "simulado", "facebook", "twitter", "whatsapp")):
+        if any(ig in u_low for ig in ("prova", "gabarito", "termos", "privacidade", "apostila", "simulado", "facebook", "twitter", "whatsapp", "pciconcursos.com.br/noticias/")):
             return
         if u_full not in links_encontrados:
             links_encontrados.append(u_full)
 
-    for a in soup.find_all("a", href=True):
+    for a in corpo_noticia.find_all("a", href=True):
         href = a["href"]
         texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
         href_low = href.lower()
 
-        if any(p in href_low or p in texto for p in ("edital", "abertura", "integra", "íntegra", "anexo", "regulamento", "baixar")):
+        if any(p in href_low or p in texto for p in ("edital", "abertura", "integra", "íntegra", "anexo", "regulamento", "baixar", "inscric")):
             adicionar(href)
         elif ".pdf" in href_low:
             adicionar(href)
 
     if not links_encontrados:
-        for a in soup.find_all("a", href=True):
+        for a in corpo_noticia.find_all("a", href=True):
             href = a["href"]
             if "pciconcursos.com.br" not in href and "http" in href:
                 adicionar(href)
 
+    # Fallback supremo: se não achou link externo limpo, usa a própria página da notícia do PCI
     if not links_encontrados:
         links_encontrados.append(url_noticia)
 
@@ -273,7 +278,7 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
 
 def baixar_conteudo_edital(link_edital: str) -> str | None:
     try:
-        print(f"📥 Acessando link do edital: {link_edital}")
+        print(f"📥 Acessando documento/link: {link_edital}")
         headers_edital = {**HEADERS_PADRAO, "Referer": PCI_CONCURSOS_URL}
         resp = sessao.get(link_edital, headers=headers_edital, timeout=PDF_TIMEOUT, allow_redirects=True)
         resp.raise_for_status()
@@ -291,12 +296,12 @@ def baixar_conteudo_edital(link_edital: str) -> str | None:
             print(f"✓ Página do edital capturada ({len(resp.content) / 1024:.1f} KB)")
             return arq.name
     except Exception as exc:
-        print(f"⚠️ Erro ao descarregar conteúdo do edital ({link_edital}): {exc}")
+        print(f"⚠️ Erro ao descarregar conteúdo ({link_edital}): {exc}")
         return None
 
 
 # ============================================================
-# NÍVEL 3: EXTRAIR VAGAS, CARGOS E CONTEÚDO PROGRAMÁTICO (GEMINI)
+# NÍVEL 3: EXTRAÇÃO COM RETRY AUTOMÁTICO (CONTRA ERRO 503)
 # ============================================================
 
 def extrair_cargos_e_materias_com_ia(caminho_arquivo: str, texto_noticia: str, resumo_capa: str) -> EditalCompletoExtraido | None:
@@ -333,20 +338,34 @@ REGRAS OBRIGATÓRIAS:
 
         conteudos = [
             *( [arquivo_gemini] if arquivo_gemini else [] ),
-            f"Texto da notícia:\n{texto_noticia[:15000]}\n\n{prompt}"
+            f"Texto da notícia do concurso:\n{texto_noticia[:15000]}\n\n{prompt}"
         ]
 
-        print(f"🤖 Extraindo cargos, vagas, salários e conteúdo programático com Gemini ({GEMINI_MODEL})...")
-        resposta = gemini.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=conteudos,
-            config=types.GenerateContentConfig(
-                temperature=0.0,
-                response_mime_type="application/json",
-                response_schema=EditalCompletoExtraido,
-                max_output_tokens=65536,
-            ),
-        )
+        # Sistema de Tentativa Automática (Retry) para contornar erro 503 de alta demanda
+        resposta = None
+        for tentativa in range(1, 4):
+            try:
+                print(f"🤖 Extraindo com Gemini ({GEMINI_MODEL}) - Tentativa {tentativa}/3...")
+                resposta = gemini.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=conteudos,
+                    config=types.GenerateContentConfig(
+                        temperature=0.0,
+                        response_mime_type="application/json",
+                        response_schema=EditalCompletoExtraido,
+                        max_output_tokens=65536,
+                    ),
+                )
+                break
+            except Exception as e:
+                if "503" in str(e) and tentativa < 3:
+                    print(f"⚠️ Servidor ocupado (503). Aguardando 6 segundos para tentar novamente...")
+                    time.sleep(6)
+                else:
+                    raise e
+
+        if not resposta or not resposta.text:
+            return None
 
         dados = parse_json_resposta(resposta.text)
         return EditalCompletoExtraido.model_validate(dados)
