@@ -222,4 +222,581 @@ def esfera_fallback(orgao: str) -> str:
 
 def chamar_gemini(contents, schema, tentativas: int = 5):
     """Executa chamadas estruturadas ao Gemini com fallback de modelo e retries."""
-    ultimo_
+    ultimo_erro = None
+    modelos = [GEMINI_MODEL, GEMINI_MODEL] + [GEMINI_FALLBACK_MODEL] * 3
+
+    for tentativa in range(tentativas):
+        modelo = modelos[tentativa]
+        try:
+            resposta = gemini.models.generate_content(
+                model=modelo,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                    response_schema=schema,
+                    max_output_tokens=65536,
+                ),
+            )
+            return parse_json_resposta(resposta.text)
+        except Exception as exc:
+            ultimo_erro = exc
+            if tentativa < tentativas - 1:
+                espera = min(10 * (tentativa + 1), 40)
+                print(f"⚠️ Gemini ({modelo}) erro: {str(exc)[:100]}; aguardando {espera}s...")
+                time.sleep(espera)
+
+    raise ultimo_erro
+
+
+def enviar_pdf_gemini(pdf_path: str):
+    """Realiza upload do PDF para o File API do Gemini e aguarda estado ACTIVE."""
+    arquivo = gemini.files.upload(
+        file=pdf_path,
+        config={"mime_type": "application/pdf"},
+    )
+
+    for _ in range(60):
+        estado = getattr(arquivo.state, "name", str(arquivo.state))
+        if arquivo.state is None or estado == "ACTIVE":
+            return arquivo
+        if estado == "FAILED":
+            raise RuntimeError("Gemini falhou ao indexar o PDF.")
+        time.sleep(2)
+        arquivo = gemini.files.get(name=arquivo.name)
+
+    raise TimeoutError("Tempo excedido aguardando ativação do PDF no Gemini.")
+
+
+def analisar_edital(texto_artigo: str, arquivo_gemini=None) -> Concurso | None:
+    prompt = f"""
+Você é um especialista em análise de editais de concursos públicos brasileiros.
+Fontes: o EDITAL em PDF (se anexado) e o texto extraído da notícia abaixo.
+
+Extraia com exatidão as informações estruturadas:
+1. 'orgao': Nome oficial do órgão.
+2. 'banca': Nome da instituição organizadora (ex: Cebraspe, FGV, FCC, Vunesp, etc.).
+3. 'esfera': Federal, Estadual ou Municipal.
+4. 'data_prova': Data da prova objetiva no padrão YYYY-MM-DD. Se inexistente, retorne null.
+5. 'cargos': Liste CADA um dos cargos e especialidades como um elemento separado.
+   - Para cada cargo:
+     - 'nome_cargo': Denominação formal do cargo.
+     - 'vagas': Total de vagas imediatas + PcD + cotas (0 se for apenas CR).
+     - 'salario': Vencimento inicial puro (apenas número, ex: 5410.20).
+     - 'escolaridade': Fundamental, Médio, Técnico ou Superior.
+   - Não junte múltiplos cargos em uma linha só.
+   - Não use o total de vagas do concurso no cargo se houver divisão por função.
+
+TEXTO DA PÁGINA:
+{texto_artigo[:25000]}
+"""
+
+    contents = [arquivo_gemini, prompt] if arquivo_gemini else prompt
+
+    try:
+        dados = chamar_gemini(contents, Concurso)
+        return Concurso.model_validate(dados)
+    except Exception as exc:
+        print(f"⚠️ Falha ao analisar concurso com Gemini: {exc}")
+        return None
+
+
+def extrair_materias_cargo(cargo: str, arquivo_gemini) -> list[dict]:
+    print(f"🧠 Extraindo conteúdo programático: {cargo}")
+
+    prompt = f"""
+Analise o edital PDF anexado.
+
+TAREFA:
+Extraia a grade de conteúdo programático correspondente ao cargo:
+"{cargo}"
+
+REGRAS:
+1. Busque no Anexo de Conteúdo Programático.
+2. Agrupe matérias comuns (básicas do nível/grupo do cargo) E específicas que se aplicam a ele.
+3. Não resuma: preserve a redação dos pontos do edital.
+4. Cada disciplina deve ser um item em 'materias'.
+5. Em 'topicos', coloque cada assunto da disciplina em um item da lista.
+6. Retorne {{"materias": []}} se o edital não apresentar matérias para esse cargo.
+"""
+
+    try:
+        dados = chamar_gemini([arquivo_gemini, prompt], MateriasResposta)
+        resposta = MateriasResposta.model_validate(dados)
+
+        materias = []
+        for item in resposta.materias:
+            nome = item.nome.strip()
+            if not nome:
+                continue
+            topicos = [t.strip() for t in item.topicos if t and t.strip()]
+            materias.append({
+                "nome": nome,
+                "peso": item.peso if item.peso is not None else 1.0,
+                "topicos": topicos,
+            })
+
+        print(f"✓ {len(materias)} matérias obtidas para '{cargo}'")
+        return materias
+
+    except Exception as exc:
+        print(f"❌ Erro ao extrair disciplinas de '{cargo}': {exc}")
+        return []
+
+
+# ============================================================
+# HTTP / EXTRAÇÃO DE LINKS & PDF
+# ============================================================
+
+def baixar_pagina(url: str) -> requests.Response:
+    headers = {
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        "Referer": "[https://www.google.com/](https://www.google.com/)",
+    }
+    resposta = sessao.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+    resposta.raise_for_status()
+    return resposta
+
+
+def encontrar_pdfs(soup: BeautifulSoup, url_base: str) -> list[str]:
+    candidatos = {}
+
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "").strip()
+        if not href or href.startswith(("#", "mailto:", "javascript:")):
+            continue
+
+        texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
+        url = urljoin(url_base, href)
+        href_lower = href.lower()
+
+        pontuacao = 0
+        if ".pdf" in href_lower:
+            pontuacao += 30
+        if any(t in texto for t in ("edital de abertura", "edital publicado", "íntegra do edital", "baixe o edital")):
+            pontuacao += 25
+        elif "edital" in texto:
+            pontuacao += 15
+        if "edital" in href_lower:
+            pontuacao += 10
+
+        if any(t in texto for t in ("resultado", "gabarito", "homologação", "convocação", "recurso", "cronograma")):
+            pontuacao -= 20
+
+        if pontuacao > 0:
+            candidatos[url] = max(pontuacao, candidatos.get(url, 0))
+
+    ordenados = sorted(candidatos.items(), key=lambda i: i[1], reverse=True)
+    return [url for url, _ in ordenados]
+
+
+def baixar_pdf(pdf_url: str) -> str | None:
+    try:
+        resposta = sessao.get(pdf_url, timeout=PDF_TIMEOUT, allow_redirects=True)
+        resposta.raise_for_status()
+
+        conteudo = resposta.content
+        if not conteudo[:1024].lstrip().startswith(b"%PDF"):
+            return None
+
+        if len(conteudo) < 5000:
+            return None
+
+        arquivo = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        arquivo.write(conteudo)
+        arquivo.close()
+
+        print(f"✓ PDF baixado ({len(conteudo) / 1024:.1f} KB): {pdf_url[:80]}")
+        return arquivo.name
+
+    except Exception as exc:
+        print(f"⚠️ Erro ao baixar PDF ({pdf_url[:60]}): {exc}")
+        return None
+
+
+def obter_pdf(soup: BeautifulSoup, url_base: str):
+    for pdf_url in encontrar_pdfs(soup, url_base)[:6]:
+        print(f"📄 Testando link: {pdf_url}")
+        pdf_path = baixar_pdf(pdf_url)
+        if pdf_path:
+            return pdf_url, pdf_path
+    return None, None
+
+
+# ============================================================
+# SUPABASE
+# ============================================================
+
+def materias_validas(materias) -> bool:
+    return isinstance(materias, list) and len(materias) > 0
+
+
+def buscar_edital_existente(orgao: str, cargo: str):
+    try:
+        resposta = (
+            supabase.table("editais")
+            .select("id,orgao,cargo,materias")
+            .ilike("orgao", f"%{orgao[:60]}%")
+            .limit(500)
+            .execute()
+        )
+
+        alvo_cargo = normalizar_texto(cargo).casefold()
+        alvo_orgao = normalizar_texto(orgao).casefold()
+
+        for item in resposta.data or []:
+            cargo_banco = normalizar_texto(item.get("cargo")).casefold()
+            orgao_banco = normalizar_texto(item.get("orgao")).casefold()
+
+            if cargo_banco == alvo_cargo and (orgao_banco == alvo_orgao or alvo_orgao in orgao_banco):
+                return item
+
+        return None
+    except Exception as exc:
+        print(f"⚠️ Erro ao consultar Supabase: {exc}")
+        return None
+
+
+def salvar_ou_atualizar(payload: dict, orgao: str, cargo: str, materias: list[dict]) -> str:
+    existente = buscar_edital_existente(orgao, cargo)
+
+    if existente:
+        edital_id = existente["id"]
+        antigas = existente.get("materias")
+
+        update_payload = {
+            k: v for k, v in payload.items() if v not in (None, "", 0)
+        }
+
+        if materias_validas(materias):
+            update_payload["materias"] = materias
+        elif materias_validas(antigas):
+            print(f"↪ {cargo}: preservando matérias cadastradas previamente.")
+
+        supabase.table("editais").update(update_payload).eq("id", edital_id).execute()
+        print(f"🔄 Atualizado: {orgao} -> {cargo}")
+        return "atualizado"
+
+    if not materias_validas(materias):
+        print(f"⚠️ Inserindo '{cargo}' sem matérias (necessitará reprocessamento).")
+
+    supabase.table("editais").insert({**payload, "materias": materias}).execute()
+    print(f"🆕 Inserido: {orgao} -> {cargo} ({len(materias)} matérias)")
+    return "inserido"
+
+
+def listar_editais_para_reprocessar():
+    resultados = []
+    page_size = 1000
+    inicio = 0
+
+    while True:
+        resposta = (
+            supabase.table("editais")
+            .select("id,orgao,cargo,materias,observacoes,link_origem")
+            .range(inicio, inicio + page_size - 1)
+            .execute()
+        )
+        pagina = resposta.data or []
+        if not pagina:
+            break
+
+        for item in pagina:
+            if not materias_validas(item.get("materias")):
+                resultados.append(item)
+
+        if len(pagina) < page_size:
+            break
+        inicio += page_size
+
+    if REPROCESS_LIMIT > 0:
+        resultados = resultados[:REPROCESS_LIMIT]
+
+    return resultados
+
+
+# ============================================================
+# PROCESSAMENTO DE CONCURSO
+# ============================================================
+
+def processar_concurso(url_noticia: str) -> int:
+    print("\n" + "=" * 80)
+    print(f"🌐 Processando: {url_noticia}")
+    print("=" * 80)
+
+    try:
+        resposta = baixar_pagina(url_noticia)
+    except Exception as exc:
+        print(f"❌ Falha ao acessar notícia ({url_noticia}): {exc}")
+        return 0
+
+    soup = BeautifulSoup(resposta.text, "html.parser")
+
+    soup_texto = BeautifulSoup(resposta.text, "html.parser")
+    for tag in soup_texto(["script", "style", "nav", "footer", "header", "noscript"]):
+        tag.decompose()
+    texto_artigo = normalizar_texto(soup_texto.get_text(" ", strip=True))
+
+    pdf_url, pdf_path = obter_pdf(soup, url_noticia)
+    arquivo_gemini = None
+    alterados = 0
+
+    try:
+        if pdf_path:
+            try:
+                arquivo_gemini = enviar_pdf_gemini(pdf_path)
+                print("✓ PDF enviado e ativado no Gemini.")
+            except Exception as exc:
+                print(f"❌ Falha ao enviar PDF para o Gemini: {exc}")
+
+        dados = analisar_edital(texto_artigo, arquivo_gemini)
+        if (not dados or not dados.cargos) and arquivo_gemini:
+            print("⚠️ Re-tentando análise apenas com o texto da notícia...")
+            dados = analisar_edital(texto_artigo, None)
+
+        if not dados or not dados.cargos:
+            print("❌ Nenhum cargo identificado.")
+            return 0
+
+        print(f"✓ {len(dados.cargos)} cargos estruturados pelo Gemini.")
+
+        orgao = normalizar_texto(dados.orgao) or "Órgão Público"
+        banca = normalizar_texto(dados.banca) or "A definir"
+        esfera = normalizar_texto(dados.esfera) or esfera_fallback(orgao)
+        data_prova = normalizar_data(dados.data_prova)
+
+        vistos = set()
+
+        for cargo in dados.cargos:
+            nome_cargo = normalizar_texto(cargo.nome_cargo)
+            if not nome_cargo or nome_cargo.casefold() in vistos:
+                continue
+            vistos.add(nome_cargo.casefold())
+
+            materias = []
+            if arquivo_gemini:
+                materias = extrair_materias_cargo(nome_cargo, arquivo_gemini)
+
+            payload = {
+                "titulo": f"{orgao} - {nome_cargo}",
+                "orgao": orgao[:255],
+                "banca": banca[:100],
+                "vagas": limpar_vagas(cargo.vagas),
+                "salario_maximo": limpar_salario(cargo.salario),
+                "escolaridade": normalizar_texto(cargo.escolaridade)[:100],
+                "link_origem": url_noticia,
+                "cargo": nome_cargo[:255],
+                "esfera": esfera[:50],
+                "status": "Edital Publicado",
+                "data_prova": data_prova,
+                "observacoes": f"Edital: {pdf_url}" if pdf_url else "Ver notícia",
+            }
+
+            try:
+                status = salvar_ou_atualizar(payload, orgao, nome_cargo, materias)
+                if status in ("inserido", "atualizado"):
+                    alterados += 1
+            except Exception as exc:
+                print(f"❌ Erro ao salvar cargo '{nome_cargo}': {exc}")
+
+            time.sleep(SLEEP_SECONDS)
+
+    finally:
+        if arquivo_gemini:
+            try:
+                gemini.files.delete(name=arquivo_gemini.name)
+            except Exception:
+                pass
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                os.remove(pdf_path)
+            except OSError:
+                pass
+
+    return alterados
+
+
+# ============================================================
+# REPROCESSAMENTO DE MATÉRIAS
+# ============================================================
+
+def extrair_pdf_da_observacao(observacoes: str | None) -> str | None:
+    if not observacoes:
+        return None
+    match = re.search(r"https?://\S+?\.pdf(?:\?\S*)?", observacoes, flags=re.IGNORECASE)
+    return match.group(0).rstrip(").,;") if match else None
+
+
+def descobrir_pdf_do_registro(item: dict):
+    pdf_url = extrair_pdf_da_observacao(item.get("observacoes"))
+    if pdf_url:
+        path = baixar_pdf(pdf_url)
+        if path:
+            return pdf_url, path
+
+    link_origem = item.get("link_origem")
+    if link_origem:
+        try:
+            soup = BeautifulSoup(baixar_pagina(link_origem).text, "html.parser")
+            return obter_pdf(soup, link_origem)
+        except Exception as exc:
+            print(f"⚠️ Erro ao buscar PDF pela página original: {exc}")
+
+    return None, None
+
+
+def reprocessar_materias():
+    registros = listar_editais_para_reprocessar()
+    print(f"♻️ Total de registros pendentes de matérias: {len(registros)}")
+
+    grupos: dict[str, list[dict]] = {}
+    for item in registros:
+        chave = item.get("link_origem") or f"id-{item['id']}"
+        grupos.setdefault(chave, []).append(item)
+
+    sucesso = 0
+
+    for itens in grupos.values():
+        pdf_url, pdf_path = descobrir_pdf_do_registro(itens[0])
+        if not pdf_path:
+            print(f"❌ PDF inacessível para o grupo: {itens[0].get('orgao')}")
+            continue
+
+        arquivo_gemini = None
+        try:
+            arquivo_gemini = enviar_pdf_gemini(pdf_path)
+
+            for item in itens:
+                cargo = normalizar_texto(item.get("cargo"))
+                print(f"♻️ Processando ID {item['id']}: {item.get('orgao')} -> {cargo}")
+
+                materias = extrair_materias_cargo(cargo, arquivo_gemini)
+                if not materias:
+                    print("⚠️ Disciplinas não identificadas no edital.")
+                    continue
+
+                supabase.table("editais").update({
+                    "materias": materias,
+                    "observacoes": f"Edital: {pdf_url}" if pdf_url else item.get("observacoes"),
+                }).eq("id", item["id"]).execute()
+
+                print(f"✅ ID {item['id']} atualizado com {len(materias)} matérias.")
+                sucesso += 1
+                time.sleep(SLEEP_SECONDS)
+
+        except Exception as exc:
+            print(f"❌ Erro durante o reprocessamento do grupo: {exc}")
+        finally:
+            if arquivo_gemini:
+                try:
+                    gemini.files.delete(name=arquivo_gemini.name)
+                except Exception:
+                    pass
+            if pdf_path and os.path.exists(pdf_path):
+                try:
+                    os.remove(pdf_path)
+                except OSError:
+                    pass
+
+    print(f"\n🏁 Reprocessamento concluído: {sucesso}/{len(registros)} registros finalizados.")
+
+
+# ============================================================
+# CRAWLER PRINCIPAL (LISTAGEM)
+# ============================================================
+
+def listar_links_concursos() -> list[str]:
+    resposta = baixar_pagina(ESTRATEGIA_URL)
+    soup = BeautifulSoup(resposta.text, "html.parser")
+
+    links = set()
+    url_base_limpa = ESTRATEGIA_URL.split("?")[0].rstrip("/")
+
+    # Estratégia 1: Varredura de links com padrões de editais abertos
+    for a in soup.find_all("a", href=True):
+        href = urljoin(ESTRATEGIA_URL, a["href"]).strip()
+        href_limpa = href.split("#")[0].split("?")[0].rstrip("/")
+
+        if href_limpa == url_base_limpa:
+            continue
+
+        if any(p in href_limpa for p in [
+            "/portal/concurso-",
+            "/portal/concursos-",
+            "/portal/concurso/",
+            "/portal/edital-",
+        ]):
+            links.add(href_limpa + "/")
+
+    # Estratégia 2: Fallback selecionando títulos de matérias caso a listagem principal mude de rota
+    if not links:
+        seletores = [
+            "article a[href]",
+            ".entry-title a[href]",
+            ".elementor-post__title a[href]",
+            ".wp-block-post-title a[href]",
+        ]
+        for seletor in seletores:
+            for el in soup.select(seletor):
+                link = urljoin(ESTRATEGIA_URL, el["href"]).strip()
+                link_limpo = link.split("#")[0].split("?")[0].rstrip("/")
+                if "/portal/" in link_limpo and link_limpo != url_base_limpa:
+                    links.add(link_limpo + "/")
+
+    return sorted(links)
+
+
+def crawler_novos():
+    try:
+        links = listar_links_concursos()
+    except Exception as exc:
+        print(f"❌ Falha ao obter listagem de concursos: {exc}")
+        return 1
+
+    print(f"📋 Concursos encontrados na listagem: {len(links)}")
+
+    processados = 0
+    alterados = 0
+
+    for link in links:
+        if MAX_CONCURSOS > 0 and processados >= MAX_CONCURSOS:
+            break
+        try:
+            alterados += processar_concurso(link)
+            processados += 1
+        except Exception as exc:
+            print(f"❌ Erro ao processar concurso ({link}): {exc}")
+        time.sleep(SLEEP_SECONDS)
+
+    print(
+        f"\n🏁 Varredura concluída. Artigos processados: {processados}. "
+        f"Cargos inseridos/atualizados: {alterados}."
+    )
+    return 0
+
+
+# ============================================================
+# CLI
+# ============================================================
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Robô de Editais - Gabarita PRO"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("crawl", "reprocessar-materias"),
+        default="crawl",
+        help="crawl = novos concursos; reprocessar-materias = atualiza registros pendentes",
+    )
+    args = parser.parse_args()
+
+    if args.mode == "reprocessar-materias":
+        reprocessar_materias()
+        return 0
+
+    return crawler_novos()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
