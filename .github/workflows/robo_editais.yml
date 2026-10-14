@@ -1,9 +1,12 @@
-- name: Executar crawler
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: "gemini-3.8-flash"
-          MAX_CONCURSOS: ${{ inputs.max_concursos || '2' }}
-        run: |
-          python crawler_editais.py
+name: Robo Diario de Editais - Gabarita PRO
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_concursos:
+        description: "Quantidade de editais para processar"
+        required: true
+        default: "2"
+        type: string
+  schedule:
+    - cron: "0 6 * * *"
