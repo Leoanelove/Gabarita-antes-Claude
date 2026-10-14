@@ -397,22 +397,18 @@ def processar_concurso(url_noticia: str):
 
     soup = BeautifulSoup(resp.text, "html.parser")
     
-    # 1. Extração estruturada do HTML
     dados = extrair_dados_html(soup, url_noticia)
     print(f"✓ Órgão: {dados['orgao']}")
     print(f"✓ Banca: {dados['banca']} | Vagas: {dados['vagas']} | Salário: R$ {dados['salario']} | Prova: {dados['data_prova']}")
     print(f"✓ Cargos: {dados['cargos']}")
 
-    # 2. Busca e download do PDF
     pdf_url = obter_link_pdf(soup, url_noticia)
     pdf_path = baixar_pdf(pdf_url) if pdf_url else None
 
-    # 3. Única requisição de IA para matérias
     texto_artigo = normalizar_texto(soup.get_text(" ", strip=True))
     materias = extrair_materias_com_ia(pdf_path, texto_artigo)
     print(f"✓ Conteúdo Programático: {len(materias)} matérias identificadas.")
 
-    # 4. Inserção / Atualização de cada cargo isolado no Supabase
     for cargo_nome in dados["cargos"]:
         payload = {
             "titulo": f"{dados['orgao']} - {cargo_nome}",
@@ -430,7 +426,6 @@ def processar_concurso(url_noticia: str):
         }
         salvar_no_banco(payload, materias)
 
-    # Limpeza
     if pdf_path and os.path.exists(pdf_path):
         try:
             os.remove(pdf_path)
@@ -445,7 +440,7 @@ def listar_links() -> list[str]:
 
     for a in soup.find_all("a", href=True):
         href = urljoin(ESTRATEGIA_URL, a["href"]).split("#")[0].split("?")[0].rstrip("/")
-        if any(p in href for p in ("/portal/concurso-", "/portal/edital-")) and not any(ign in href for ignorar in ("concursos-abertos-", "noticias-")):
+        if any(p in href for p in ("/portal/concurso-", "/portal/edital-")) and not any(ignorar in href for ignorar in ("concursos-abertos-", "noticias-")):
             links.add(href + "/")
 
     return sorted(links)
