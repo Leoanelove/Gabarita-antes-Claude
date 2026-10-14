@@ -1,31 +1,68 @@
+```yaml
 name: Robo Diario de Editais - Gabarita PRO
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Escolha o que o robo vai fazer"
+        required: true
+        default: "crawl"
+        type: choice
+        options:
+          - crawl
+          - reprocessar-materias
+
+      max_concursos:
+        description: "Limite de concursos (0 = todos)"
+        required: true
+        default: "2"
+        type: string
+
+      reprocess_limit:
+        description: "Limite de editais antigos (0 = todos)"
+        required: true
+        default: "2"
+        type: string
+
   schedule:
-    - cron: '0 6 * * *'
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
 
 jobs:
   executar-robo:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
-      - name: Obter o codigo do repositorio
+      - name: Obter codigo do repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar o Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.12"
+          cache: pip
 
       - name: Instalar bibliotecas
         run: |
-          pip install requests supabase google-generativeai beautifulsoup4
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-      - name: Executar o script de ingestao
+      - name: Executar crawler
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.8-flash
+          MAX_CONCURSOS: ${{ inputs.max_concursos || '0' }}
+          REPROCESS_LIMIT: ${{ inputs.reprocess_limit || '0' }}
         run: |
-          python crawler_editais.py
+          if [ "${{ inputs.mode }}" = "reprocessar-materias" ]; then
+            python crawler_editais.py --mode reprocessar-materias
+          else
+            python crawler_editais.py --mode crawl
+          fi
+```
