@@ -7,7 +7,7 @@ name: Robo Diario de Editais - Gabarita PRO
       mode:
         description: "Escolha a tarefa"
         required: true
-        default: "reprocessar-materias"
+        default: "crawl"
         type: choice
         options:
           - crawl
