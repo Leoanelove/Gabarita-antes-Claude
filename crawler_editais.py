@@ -42,8 +42,8 @@ PCI_CONCURSOS_URL = limpar_url(
     os.getenv("PCI_URL", PROTO + "www.pciconcursos.com.br/concursos/")
 )
 
-# Atualizado para o modelo exigido pela API atual do Google
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+# Força o modelo ativo atual da API do Google, ignorando valores legados
+GEMINI_MODEL = "gemini-3.5-flash"
 
 MAX_CONCURSOS = int(os.getenv("MAX_CONCURSOS", "2"))
 MAX_CARGOS_POR_CONCURSO = int(os.getenv("MAX_CARGOS_POR_CONCURSO", "25"))
@@ -235,7 +235,6 @@ def listar_concursos_abertos_pci() -> list[dict]:
 def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
     links_encontrados = []
 
-    # Remove sidebar/notícias relacionadas para não capturar links de outros concursos
     for sidebar in soup.find_all(["aside", "div"], class_=re.compile("relacionad|sidebar|footer|menu", re.I)):
         sidebar.decompose()
 
@@ -250,7 +249,6 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
         if u_full not in links_encontrados:
             links_encontrados.append(u_full)
 
-    # 1. Procura tags <a> com palavras-chave de edital no corpo principal
     for a in soup.find_all("a", href=True):
         href = a["href"]
         texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
@@ -261,14 +259,12 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
         elif ".pdf" in href_low:
             adicionar(href)
 
-    # 2. Se não achou link específico, pega links externos de inscrição/banca citados no texto principal
     if not links_encontrados:
         for a in soup.find_all("a", href=True):
             href = a["href"]
             if "pciconcursos.com.br" not in href and "http" in href:
                 adicionar(href)
 
-    # 3. Fallback absoluto: usa a própria página da notícia do PCI
     if not links_encontrados:
         links_encontrados.append(url_noticia)
 
