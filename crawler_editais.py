@@ -39,13 +39,22 @@ REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "45"))
 PDF_TIMEOUT = int(os.getenv("PDF_TIMEOUT", "120"))
 SLEEP_SECONDS = float(os.getenv("SLEEP_SECONDS", "2"))
 
-HEADERS = {
+HEADERS_PADRAO = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/130.0.0.0 Safari/537.36"
+        "Chrome/124.0.0.0 Safari/537.36"
     ),
-    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
 }
 
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -57,15 +66,16 @@ if not GEMINI_API_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 gemini = genai.Client(api_key=GEMINI_API_KEY)
 
-# Usa curl_cffi para contornar proteções TLS/Cloudflare quando disponível
+# Configura sessão com curl_cffi para contornar o bloqueio antibot (403)
+TEM_CURL_CFFI = False
 try:
     from curl_cffi import requests as _http_chrome
-
-    sessao = _http_chrome.Session(impersonate="chrome")
-    print("🌐 Usando curl_cffi (impersonando Chrome).")
+    sessao = _http_chrome.Session(impersonate="chrome124")
+    TEM_CURL_CFFI = True
+    print("🌐 Usando curl_cffi (impersonando Chrome 124 com sucesso).")
 except ImportError:
     sessao = requests.Session()
-    sessao.headers.update(HEADERS)
+    sessao.headers.update(HEADERS_PADRAO)
     print("⚠️ curl_cffi não instalado; usando requests comum.")
 
 
@@ -79,15 +89,15 @@ class Cargo(BaseModel):
     nome_cargo: str = Field(description="Nome exato da carreira, cargo ou especialidade.")
     vagas: int | None = Field(
         default=None,
-        description="Total numérico de vagas imediatas + cotas + PcD do cargo (0 se apenas CR); null se não informado.",
+        description="Total de vagas numéricas (ampla + cotas + PcD) do cargo. 0 se apenas CR; null se não informado.",
     )
     salario: float | None = Field(
         default=None,
-        description="Remuneração bruta inicial em reais (apenas número, ex: 6420.50); null se não informado.",
+        description="Remuneração bruta inicial em reais (somente números, ex: 6500.50); null se não informado.",
     )
     escolaridade: str | None = Field(
         default=None,
-        description="Nível de escolaridade exigido (ex: Superior, Médio, Técnico, Fundamental); null se não informado.",
+        description="Escolaridade exigida (Fundamental, Médio, Técnico ou Superior); null se não informado.",
     )
 
 
@@ -105,8 +115,8 @@ class Materia(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     nome: str = Field(description="Nome da disciplina (ex: Língua Portuguesa, Direito Constitucional).")
-    peso: float | None = Field(default=1.0, description="Peso da disciplina, se especificado no edital.")
-    topicos: list[str] = Field(default_factory=list, description="Lista textual de tópicos e subtópicos da matéria.")
+    peso: float | None = Field(default=1.0, description="Peso da matéria caso informado no edital.")
+    topicos: list[str] = Field(default_factory=list, description="Lista textual com os tópicos/assuntos programáticos.")
 
 
 class MateriasResposta(BaseModel):
@@ -221,7 +231,6 @@ def esfera_fallback(orgao: str) -> str:
 # ============================================================
 
 def chamar_gemini(contents, schema, tentativas: int = 5):
-    """Executa chamadas estruturadas ao Gemini com fallback de modelo e retries."""
     ultimo_erro = None
     modelos = [GEMINI_MODEL, GEMINI_MODEL] + [GEMINI_FALLBACK_MODEL] * 3
 
@@ -250,7 +259,6 @@ def chamar_gemini(contents, schema, tentativas: int = 5):
 
 
 def enviar_pdf_gemini(pdf_path: str):
-    """Realiza upload do PDF para o File API do Gemini e aguarda estado ACTIVE."""
     arquivo = gemini.files.upload(
         file=pdf_path,
         config={"mime_type": "application/pdf"},
@@ -270,24 +278,24 @@ def enviar_pdf_gemini(pdf_path: str):
 
 def analisar_edital(texto_artigo: str, arquivo_gemini=None) -> Concurso | None:
     prompt = f"""
-Você é um especialista em análise de editais de concursos públicos brasileiros.
-Fontes: o EDITAL em PDF (se anexado) e o texto extraído da notícia abaixo.
+Você é um especialista em análise de editais de concursos públicos no Brasil.
+Fontes: o EDITAL em PDF (se anexado) e o texto da notícia abaixo.
 
-Extraia com exatidão as informações estruturadas:
+Extraia as seguintes informações obrigatórias:
 1. 'orgao': Nome oficial do órgão.
 2. 'banca': Nome da instituição organizadora (ex: Cebraspe, FGV, FCC, Vunesp, etc.).
 3. 'esfera': Federal, Estadual ou Municipal.
-4. 'data_prova': Data da prova objetiva no padrão YYYY-MM-DD. Se inexistente, retorne null.
+4. 'data_prova': Data da prova objetiva no formato YYYY-MM-DD (se inexistente, null).
 5. 'cargos': Liste CADA um dos cargos e especialidades como um elemento separado.
    - Para cada cargo:
-     - 'nome_cargo': Denominação formal do cargo.
+     - 'nome_cargo': Denominação exata do cargo/função.
      - 'vagas': Total de vagas imediatas + PcD + cotas (0 se for apenas CR).
-     - 'salario': Vencimento inicial puro (apenas número, ex: 5410.20).
+     - 'salario': Vencimento inicial (apenas número decimal, ex: 5410.20).
      - 'escolaridade': Fundamental, Médio, Técnico ou Superior.
-   - Não junte múltiplos cargos em uma linha só.
-   - Não use o total de vagas do concurso no cargo se houver divisão por função.
+   - IMPORTANTE: Não agrupe múltiplos cargos em uma linha só.
+   - Não use o total geral de vagas do concurso no cargo se houver divisão por área.
 
-TEXTO DA PÁGINA:
+TEXTO DA NOTÍCIA:
 {texto_artigo[:25000]}
 """
 
@@ -305,19 +313,19 @@ def extrair_materias_cargo(cargo: str, arquivo_gemini) -> list[dict]:
     print(f"🧠 Extraindo conteúdo programático: {cargo}")
 
     prompt = f"""
-Analise o edital PDF anexado.
+Analise o edital em PDF anexado.
 
 TAREFA:
-Extraia a grade de conteúdo programático correspondente ao cargo:
+Extraia a grade de conteúdo programático para o cargo específico:
 "{cargo}"
 
 REGRAS:
-1. Busque no Anexo de Conteúdo Programático.
-2. Agrupe matérias comuns (básicas do nível/grupo do cargo) E específicas que se aplicam a ele.
-3. Não resuma: preserve a redação dos pontos do edital.
-4. Cada disciplina deve ser um item em 'materias'.
-5. Em 'topicos', coloque cada assunto da disciplina em um item da lista.
-6. Retorne {{"materias": []}} se o edital não apresentar matérias para esse cargo.
+1. Busque no Anexo de Conteúdo Programático do edital.
+2. Agrupe tanto os conteúdos de Conhecimentos Básicos/Gerais quanto os Conhecimentos Específicos que se aplicam a este cargo.
+3. Não resuma: preserve os tópicos como redigidos no edital.
+4. Cada disciplina é um objeto em 'materias'.
+5. Cada assunto/ponto da disciplina é um item na lista 'topicos'.
+6. Se não houver disciplinas identificadas para esse cargo, retorne {{"materias": []}}.
 """
 
     try:
@@ -345,15 +353,20 @@ REGRAS:
 
 
 # ============================================================
-# HTTP / EXTRAÇÃO DE LINKS & PDF
+# HTTP / DOWNLOAD DE PÁGINAS E PDF
 # ============================================================
 
-def baixar_pagina(url: str) -> requests.Response:
-    headers = {
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        "Referer": "[https://www.google.com/](https://www.google.com/)",
-    }
-    resposta = sessao.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+def baixar_pagina(url: str):
+    if TEM_CURL_CFFI:
+        resposta = sessao.get(
+            url,
+            headers=HEADERS_PADRAO,
+            timeout=REQUEST_TIMEOUT,
+            impersonate="chrome124",
+        )
+    else:
+        resposta = sessao.get(url, headers=HEADERS_PADRAO, timeout=REQUEST_TIMEOUT)
+
     resposta.raise_for_status()
     return resposta
 
@@ -392,7 +405,17 @@ def encontrar_pdfs(soup: BeautifulSoup, url_base: str) -> list[str]:
 
 def baixar_pdf(pdf_url: str) -> str | None:
     try:
-        resposta = sessao.get(pdf_url, timeout=PDF_TIMEOUT, allow_redirects=True)
+        if TEM_CURL_CFFI:
+            resposta = sessao.get(
+                pdf_url,
+                headers=HEADERS_PADRAO,
+                timeout=PDF_TIMEOUT,
+                impersonate="chrome124",
+                allow_redirects=True,
+            )
+        else:
+            resposta = sessao.get(pdf_url, timeout=PDF_TIMEOUT, allow_redirects=True)
+
         resposta.raise_for_status()
 
         conteudo = resposta.content
@@ -416,7 +439,7 @@ def baixar_pdf(pdf_url: str) -> str | None:
 
 def obter_pdf(soup: BeautifulSoup, url_base: str):
     for pdf_url in encontrar_pdfs(soup, url_base)[:6]:
-        print(f"📄 Testando link: {pdf_url}")
+        print(f"📄 Testando link de PDF: {pdf_url}")
         pdf_path = baixar_pdf(pdf_url)
         if pdf_path:
             return pdf_url, pdf_path
@@ -424,7 +447,7 @@ def obter_pdf(soup: BeautifulSoup, url_base: str):
 
 
 # ============================================================
-# SUPABASE
+# BANCO DE DADOS (SUPABASE)
 # ============================================================
 
 def materias_validas(materias) -> bool:
@@ -478,7 +501,7 @@ def salvar_ou_atualizar(payload: dict, orgao: str, cargo: str, materias: list[di
         return "atualizado"
 
     if not materias_validas(materias):
-        print(f"⚠️ Inserindo '{cargo}' sem matérias (necessitará reprocessamento).")
+        print(f"⚠️ Inserindo '{cargo}' sem matérias (pendente de reprocessamento).")
 
     supabase.table("editais").insert({**payload, "materias": materias}).execute()
     print(f"🆕 Inserido: {orgao} -> {cargo} ({len(materias)} matérias)")
@@ -516,7 +539,7 @@ def listar_editais_para_reprocessar():
 
 
 # ============================================================
-# PROCESSAMENTO DE CONCURSO
+# FLUXO DE EXECUÇÃO
 # ============================================================
 
 def processar_concurso(url_noticia: str) -> int:
@@ -616,10 +639,6 @@ def processar_concurso(url_noticia: str) -> int:
     return alterados
 
 
-# ============================================================
-# REPROCESSAMENTO DE MATÉRIAS
-# ============================================================
-
 def extrair_pdf_da_observacao(observacoes: str | None) -> str | None:
     if not observacoes:
         return None
@@ -659,7 +678,7 @@ def reprocessar_materias():
     for itens in grupos.values():
         pdf_url, pdf_path = descobrir_pdf_do_registro(itens[0])
         if not pdf_path:
-            print(f"❌ PDF inacessível para o grupo: {itens[0].get('orgao')}")
+            print(f"❌ PDF inacessível para o órgão: {itens[0].get('orgao')}")
             continue
 
         arquivo_gemini = None
@@ -701,10 +720,6 @@ def reprocessar_materias():
     print(f"\n🏁 Reprocessamento concluído: {sucesso}/{len(registros)} registros finalizados.")
 
 
-# ============================================================
-# CRAWLER PRINCIPAL (LISTAGEM)
-# ============================================================
-
 def listar_links_concursos() -> list[str]:
     resposta = baixar_pagina(ESTRATEGIA_URL)
     soup = BeautifulSoup(resposta.text, "html.parser")
@@ -712,7 +727,7 @@ def listar_links_concursos() -> list[str]:
     links = set()
     url_base_limpa = ESTRATEGIA_URL.split("?")[0].rstrip("/")
 
-    # Estratégia 1: Varredura de links com padrões de editais abertos
+    # Estratégia 1: Padrões de links de editais abertos
     for a in soup.find_all("a", href=True):
         href = urljoin(ESTRATEGIA_URL, a["href"]).strip()
         href_limpa = href.split("#")[0].split("?")[0].rstrip("/")
@@ -728,7 +743,7 @@ def listar_links_concursos() -> list[str]:
         ]):
             links.add(href_limpa + "/")
 
-    # Estratégia 2: Fallback selecionando títulos de matérias caso a listagem principal mude de rota
+    # Estratégia 2: Fallback selecionando títulos de artigos da página
     if not links:
         seletores = [
             "article a[href]",
@@ -787,7 +802,7 @@ def main():
         "--mode",
         choices=("crawl", "reprocessar-materias"),
         default="crawl",
-        help="crawl = novos concursos; reprocessar-materias = atualiza registros pendentes",
+        help="crawl = novos concursos; reprocessar-materias = atualiza pendentes",
     )
     args = parser.parse_args()
 
