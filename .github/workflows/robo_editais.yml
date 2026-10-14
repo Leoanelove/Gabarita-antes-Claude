@@ -53,9 +53,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-          MAX_CONCURSOS: ${{ inputs.max_concursos || '0' }}
-          REPROCESS_LIMIT: ${{ inputs.reprocess_limit || '0' }}
+          GEMINI_MODEL: "gemini-2.5-flash"
+          GEMINI_FALLBACK_MODEL: "gemini-1.5-flash"
+          MAX_CONCURSOS: ${{ inputs.max_concursos || '5' }}
+          REPROCESS_LIMIT: ${{ inputs.reprocess_limit || '5' }}
         run: |
           if [ "${{ inputs.mode }}" = "reprocessar-materias" ]; then
             python crawler_editais.py --mode reprocessar-materias
