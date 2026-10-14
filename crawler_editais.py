@@ -229,7 +229,7 @@ def listar_concursos_abertos_pci() -> list[dict]:
 
 
 # ============================================================
-# NÍVEL 2: LOCALIZAR QUALQUER LINK DE EDITAL OU ARQUIVO NA PÁGINA
+# NÍVEL 2: LOCALIZAR LINKS VÁLIDOS DE EDITAL (IGNORANDO JAVASCRIPT)
 # ============================================================
 
 def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
@@ -237,7 +237,7 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
 
     def adicionar(u: str):
         u_limpa = limpar_url(u)
-        if not u_limpa:
+        if not u_limpa or u_limpa.startswith("javascript:") or u_limpa.startswith("#") or u_limpa.startswith("mailto:"):
             return
         u_full = urljoin(url_noticia, u_limpa)
         u_low = u_full.lower()
@@ -246,38 +246,38 @@ def obter_links_edital(soup: BeautifulSoup, url_noticia: str) -> list[str]:
         if u_full not in links_encontrados:
             links_encontrados.append(u_full)
 
-    # 1. Procura tags <a> cujos textos ou hrefs falem em edital ou abertura
+    # 1. Procura tags <a> com palavras-chave de edital
     for a in soup.find_all("a", href=True):
         href = a["href"]
         texto = normalizar_texto(a.get_text(" ", strip=True)).lower()
         href_low = href.lower()
 
-        if any(p in href_low or p in texto for p in ("edital", "abertura", "integra", "íntegra", "anexo", "regulamento")):
+        if any(p in href_low or p in texto for p in ("edital", "abertura", "integra", "íntegra", "anexo", "regulamento", "baixar")):
             adicionar(href)
         elif ".pdf" in href_low:
             adicionar(href)
 
-    # 2. Se não achou links específicos, pega os links externos de inscrição/banca citados na notícia
+    # 2. Se não achou link específico, pega links externos de inscrição/banca
     if not links_encontrados:
         for a in soup.find_all("a", href=True):
             href = a["href"]
             if "pciconcursos.com.br" not in href and "http" in href:
                 adicionar(href)
 
+    # 3. Fallback absoluto: Se nenhum link externo/PDF for válido, usa a própria página da notícia do PCI
+    if not links_encontrados:
+        links_encontrados.append(url_noticia)
+
     return links_encontrados
 
 
 def baixar_conteudo_edital(link_edital: str) -> str | None:
-    """
-    Baixa o arquivo se for PDF direto, ou baixa a página HTML do edital para extração.
-    """
     try:
         print(f"📥 Acessando link do edital: {link_edital}")
         headers_edital = {**HEADERS_PADRAO, "Referer": PCI_CONCURSOS_URL}
         resp = sessao.get(link_edital, headers=headers_edital, timeout=PDF_TIMEOUT, allow_redirects=True)
         resp.raise_for_status()
 
-        # Se for PDF direto
         if resp.content[:1024].lstrip().startswith(b"%PDF") or ".pdf" in link_edital.lower():
             arq = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
             arq.write(resp.content)
@@ -285,11 +285,10 @@ def baixar_conteudo_edital(link_edital: str) -> str | None:
             print(f"✓ Arquivo PDF baixado com sucesso ({len(resp.content) / 1024:.1f} KB)")
             return arq.name
         else:
-            # Se for página web da banca ou do edital, salva em HTML temporário para a IA ler
             arq = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="wb")
             arq.write(resp.content)
             arq.close()
-            print(f"✓ Página HTML do edital capturada ({len(resp.content) / 1024:.1f} KB)")
+            print(f"✓ Página do edital capturada ({len(resp.content) / 1024:.1f} KB)")
             return arq.name
     except Exception as exc:
         print(f"⚠️ Erro ao descarregar conteúdo do edital ({link_edital}): {exc}")
@@ -303,7 +302,7 @@ def baixar_conteudo_edital(link_edital: str) -> str | None:
 def extrair_cargos_e_materias_com_ia(caminho_arquivo: str, texto_noticia: str, resumo_capa: str) -> EditalCompletoExtraido | None:
     prompt = f"""
 Você é um especialista em análise de Editais de Concursos Públicos para a plataforma Gabarita PRO.
-Analise os dados da notícia e o conteúdo do Edital/Documento fornecido em anexo.
+Analise os dados da notícia e o conteúdo do documento fornecido em anexo.
 
 Dados da listagem: {resumo_capa}
 
@@ -433,7 +432,7 @@ def processar_item_da_lista(item: dict) -> bool:
 
     links_editais = obter_links_edital(soup, url_noticia)
     if not links_editais:
-        print("↩️ [Ignorado] Nenhum link de edital/abertura encontrado nesta página. Passando para o próximo...")
+        print("↩️ [Ignorado] Nenhum link de edital válido encontrado nesta página. Passando para o próximo...")
         return False
 
     print(f"✅ Concurso Público confirmado: '{titulo_noticia}'")
